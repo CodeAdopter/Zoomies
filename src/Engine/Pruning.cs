@@ -13,6 +13,9 @@ internal static class Pruning
             return 0;
         }
 
+        if (ply > 0 && (position.HasRepeated() || position.IsFiftyMoveRule()))
+            return 0;
+
         if (depth <= 0)
             return Quiescence.Search(state, position, alpha, beta, ply);
 
@@ -61,9 +64,9 @@ internal static class Pruning
         for (int i = 0; i < moveCount; i++)
         {
             Move move = moves[i];
-            position.PlayPerft(sideToMove, move);
+            position.Play(sideToMove, move);
             int score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
-            position.UndoPerft(sideToMove, move);
+            position.Undo(sideToMove, move);
 
             if (state.StopRequested) return 0;
             if (score > bestScore)

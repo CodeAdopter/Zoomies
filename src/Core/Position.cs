@@ -834,6 +834,14 @@ public class Position
             }
         }
 
+        while (fenIdx < fen.Length && fen[fenIdx] != ' ') fenIdx++;
+        if (fenIdx < fen.Length) fenIdx++;
+
+        int halfMoveClock = 0;
+        while (fenIdx < fen.Length && char.IsDigit(fen[fenIdx]))
+            halfMoveClock = halfMoveClock * 10 + (fen[fenIdx++] - '0');
+        p.History[p.gamePly].HalfMoveClock = halfMoveClock;
+
         if (p.sideToPlay == Color.Black)
             p.hash ^= Zobrist.SideToMove;
 

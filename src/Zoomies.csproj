@@ -9,6 +9,7 @@
     <TieredPGO>true</TieredPGO>
     <EnableDynamicPGO>true</EnableDynamicPGO>
     <Optimize>true</Optimize>
+    <InvariantGlobalization>true</InvariantGlobalization>
     <RootNamespace>Zoomies</RootNamespace>
     <AssemblyName>zoomies</AssemblyName>
     <Version>1.0.0</Version>

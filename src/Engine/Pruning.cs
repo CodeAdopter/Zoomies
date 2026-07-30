@@ -36,13 +36,15 @@ internal static class Pruning
             return Quiescence.Search(state, position, alpha, beta, ply);
 
         state.NodeCount++;
-        
+
+        bool inCheck = position.InCheck(position.Turn);
+
         // null move pruning
         if (allowNullMove &&
             ply > 0 &&
             depth >= 3 &&
             beta < Eval.MateBound &&
-            !position.InCheck(position.Turn) &&
+            !inCheck &&
             HasNonPawnMaterial(position, position.Turn) &&
             Eval.Evaluate(position) >= beta)
         {
@@ -58,7 +60,7 @@ internal static class Pruning
         Span<Move> moves = stackalloc Move[256];
         int moveCount = Engine.Search.GenerateLegalMoves(position, moves);
         if (moveCount == 0)
-            return position.InCheck(position.Turn) ? -Eval.MateValue + ply : 0;
+            return inCheck ? -Eval.MateValue + ply : 0;
 
         Move hashMove = ttHit ? new Move(ttEntry.Move) : default;
         if (hashMove.EncodedValue == 0 && ply == 0)
@@ -129,7 +131,25 @@ internal static class Pruning
         {
             Move move = moves[i];
             position.Play(sideToMove, move);
-            int score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
+
+            // late move reductions
+            int score;
+            if (i >= 4 &&
+                depth >= 3 &&
+                !inCheck &&
+                !move.IsCapture &&
+                (move.Flags & MoveFlags.Promotions) == 0)
+            {
+                int reduction = 1 + depth / 8 + i / 16;
+                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1);
+                if (score > alpha)
+                    score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
+            }
+            else
+            {
+                score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
+            }
+
             position.Undo(sideToMove, move);
 
             if (state.StopRequested) return 0;

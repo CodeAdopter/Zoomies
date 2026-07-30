@@ -46,11 +46,8 @@ jobs:
           dotnet publish src/Zoomies.csproj
           -c Release
           -r ${{ matrix.rid }}
-          --self-contained true
+          --self-contained false
           -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
-          -p:PublishTrimmed=true
           -p:DebugType=none
           -o publish
 

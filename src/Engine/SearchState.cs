@@ -19,6 +19,8 @@ public sealed class SearchState
     public Move PrincipalVariationMove;
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
+    public readonly int[] QuietHistory = new int[2 * 64 * 64];
+    
     public readonly Stopwatch Clock = new();
     public readonly TranspositionTable Tt = new(16);
 
@@ -36,6 +38,7 @@ public sealed class SearchState
         NodeLimit = limits.MaxNodes;
         PrincipalVariationMove = default;
         Array.Clear(KillerMoves, 0, KillerMoves.Length);
+        Array.Clear(QuietHistory, 0, QuietHistory.Length);
     }
 
     public bool ReachedSearchLimit()

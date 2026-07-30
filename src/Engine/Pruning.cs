@@ -81,23 +81,46 @@ internal static class Pruning
                 position,
                 moves[fixedMoveCount..moveCount]);
 
-        for (int killerIndex = 0, insertAt = tacticalMoveEnd;
-            killerIndex < 2 && insertAt < moveCount;
+        int quietStart = tacticalMoveEnd;
+        for (int killerIndex = 0;
+            killerIndex < 2 && quietStart < moveCount;
             killerIndex++)
         {
             Move killer = state.KillerMoves[ply, killerIndex];
             if (killer.EncodedValue == 0) continue;
 
-            for (int i = insertAt; i < moveCount; i++)
+            for (int i = quietStart; i < moveCount; i++)
             {
                 if (moves[i] != killer) continue;
-                (moves[insertAt], moves[i]) = (moves[i], moves[insertAt]);
-                insertAt++;
+                (moves[quietStart], moves[i]) = (moves[i], moves[quietStart]);
+                quietStart++;
                 break;
             }
         }
 
         Color sideToMove = position.Turn;
+
+        Span<int> quietScores = stackalloc int[256];
+        for (int i = quietStart; i < moveCount; i++)
+            quietScores[i] = state.QuietHistory[HistoryIndex(sideToMove, moves[i])];
+
+        for (int i = quietStart + 1; i < moveCount; i++)
+        {
+            Move move = moves[i];
+            int score = quietScores[i];
+            int insertionIndex = i - 1;
+
+            // shift moves with a lower score to the right
+            while (insertionIndex >= quietStart && quietScores[insertionIndex] < score)
+            {
+                moves[insertionIndex + 1] = moves[insertionIndex];
+                quietScores[insertionIndex + 1] = quietScores[insertionIndex];
+                insertionIndex--;
+            }
+
+            moves[insertionIndex + 1] = move;
+            quietScores[insertionIndex + 1] = score;
+        }
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
         Move bestMove = default;
@@ -121,11 +144,14 @@ internal static class Pruning
             if (alpha < beta) continue;
 
             if (!move.IsCapture &&
-                (move.Flags & MoveFlags.Promotions) == 0 &&
-                state.KillerMoves[ply, 0] != move)
+                (move.Flags & MoveFlags.Promotions) == 0)
             {
-                state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
-                state.KillerMoves[ply, 0] = move;
+                state.QuietHistory[HistoryIndex(sideToMove, move)] += depth * depth; // d^2
+                if (state.KillerMoves[ply, 0] != move)
+                {
+                    state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
+                    state.KillerMoves[ply, 0] = move;
+                }
             }
             break;
         }
@@ -142,6 +168,9 @@ internal static class Pruning
 
         return bestScore;
     }
+
+    private static int HistoryIndex(Color side, Move move) =>
+        ((int)side << 12) | ((int)move.From << 6) | (int)move.To;
 
     private static bool HasNonPawnMaterial(Position position, Color side) =>
         (position.BitboardOf(side, PieceType.Knight) |

@@ -33,6 +33,8 @@ public sealed class Search
 
     public void ResetStopRequest() => state.StopRequested = false;
 
+    public void NewGame() => state.Tt.Clear();
+
     public Move FindBestMove(Position position, SearchLimits limits)
     {
         state.Reset(in limits);

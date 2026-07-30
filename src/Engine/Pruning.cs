@@ -16,6 +16,22 @@ internal static class Pruning
         if (ply > 0 && (position.HasRepeated() || position.IsFiftyMoveRule()))
             return 0;
 
+        ulong key = position.History[position.Ply].Hash;
+        bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
+        if (ttHit && ply > 0 && ttEntry.Depth >= depth)
+        {
+            int ttScore = TranspositionTable.ScoreFromTt(ttEntry.Score, ply);
+            switch (ttEntry.Flag)
+            {
+                case TtFlag.Exact:
+                    return ttScore;
+                case TtFlag.Lower when ttScore >= beta:
+                    return ttScore;
+                case TtFlag.Upper when ttScore <= alpha:
+                    return ttScore;
+            }
+        }
+
         if (depth <= 0)
             return Quiescence.Search(state, position, alpha, beta, ply);
 
@@ -24,19 +40,24 @@ internal static class Pruning
         Span<Move> moves = stackalloc Move[256];
         int moveCount = Engine.Search.GenerateLegalMoves(position, moves);
         if (moveCount == 0)
-            return position.Checkers != 0 ? -Eval.MateValue + ply : 0;
+            return position.InCheck(position.Turn) ? -Eval.MateValue + ply : 0;
 
-        if (ply == 0 && state.PrincipalVariationMove.EncodedValue != 0)
+        Move hashMove = ttHit ? new Move(ttEntry.Move) : default;
+        if (hashMove.EncodedValue == 0 && ply == 0)
+            hashMove = state.PrincipalVariationMove;
+
+        int fixedMoveCount = 0;
+        if (hashMove.EncodedValue != 0)
         {
-            for (int i = 1; i < moveCount; i++)
+            for (int i = 0; i < moveCount; i++)
             {
-                if (moves[i] != state.PrincipalVariationMove) continue;
+                if (moves[i] != hashMove) continue;
                 (moves[0], moves[i]) = (moves[i], moves[0]);
+                fixedMoveCount = 1;
                 break;
             }
         }
 
-        int fixedMoveCount = ply == 0 ? 1 : 0;
         int tacticalMoveEnd = fixedMoveCount +
             Order.TacticalMoves(
                 position,
@@ -59,7 +80,9 @@ internal static class Pruning
         }
 
         Color sideToMove = position.Turn;
+        int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
+        Move bestMove = default;
 
         for (int i = 0; i < moveCount; i++)
         {
@@ -72,6 +95,7 @@ internal static class Pruning
             if (score > bestScore)
             {
                 bestScore = score;
+                bestMove = move;
                 if (ply == 0) state.PrincipalVariationMove = move;
             }
 
@@ -87,6 +111,16 @@ internal static class Pruning
             }
             break;
         }
+
+        TtFlag storeFlag = bestScore >= beta ? TtFlag.Lower
+            : bestScore > alphaOriginal ? TtFlag.Exact
+            : TtFlag.Upper;
+        state.Tt.Store(
+            key,
+            bestMove.EncodedValue,
+            TranspositionTable.ScoreToTt(bestScore, ply),
+            depth,
+            storeFlag);
 
         return bestScore;
     }

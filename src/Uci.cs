@@ -48,6 +48,7 @@ public static class Uci
 
                 case "ucinewgame":
                     StopActiveSearch();
+                    search.NewGame();
                     Position.Set(Types.StartingPositionFen, position);
                     break;
 

@@ -20,9 +20,11 @@ public sealed class SearchState
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
     public readonly Stopwatch Clock = new();
+    public readonly TranspositionTable Tt = new(16);
 
     public void Reset(in SearchLimits limits)
     {
+        Tt.NewSearch();
         NodeCount = 0;
         QuiescenceNodeCount = 0;
         EvaluationCount = 0;

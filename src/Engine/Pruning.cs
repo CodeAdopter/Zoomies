@@ -4,7 +4,7 @@ namespace Zoomies.Engine;
 
 internal static class Pruning
 {
-    public static int AlphaBeta(SearchState state, Position position, int depth, int alpha, int beta, int ply)
+    public static int AlphaBeta(SearchState state, Position position, int depth, int alpha, int beta, int ply, bool allowNullMove = true)
     {
         if (state.StopRequested) return 0;
         if ((state.NodeCount & 8191) == 0 && state.ReachedSearchLimit())
@@ -36,6 +36,24 @@ internal static class Pruning
             return Quiescence.Search(state, position, alpha, beta, ply);
 
         state.NodeCount++;
+        
+        // null move pruning
+        if (allowNullMove &&
+            ply > 0 &&
+            depth >= 3 &&
+            beta < Eval.MateBound &&
+            !position.InCheck(position.Turn) &&
+            HasNonPawnMaterial(position, position.Turn) &&
+            Eval.Evaluate(position) >= beta)
+        {
+            int reduction = 3 + depth / 6;
+            position.MakeNullMove();
+            int nullScore = -AlphaBeta(state, position, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false);
+            position.UnmakeNullMove();
+
+            if (state.StopRequested) return 0;
+            if (nullScore >= beta) return nullScore >= Eval.MateBound ? beta : nullScore;
+        }
 
         Span<Move> moves = stackalloc Move[256];
         int moveCount = Engine.Search.GenerateLegalMoves(position, moves);
@@ -124,4 +142,10 @@ internal static class Pruning
 
         return bestScore;
     }
+
+    private static bool HasNonPawnMaterial(Position position, Color side) =>
+        (position.BitboardOf(side, PieceType.Knight) |
+         position.BitboardOf(side, PieceType.Bishop) |
+         position.BitboardOf(side, PieceType.Rook) |
+         position.BitboardOf(side, PieceType.Queen)) != 0;
 }

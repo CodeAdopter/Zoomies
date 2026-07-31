@@ -53,6 +53,16 @@ internal static class Pruning
 
         state.NodeCount++;
 
+        int staticEval = inCheck ? 0 : Eval.Evaluate(position);
+
+        // reverse futility pruning
+        if (ply > 0 &&
+            !inCheck &&
+            depth <= 6 &&
+            beta < Eval.MateBound &&
+            staticEval - 80 * depth >= beta)
+            return staticEval;
+
         // null move pruning
         if (allowNullMove &&
             ply > 0 &&
@@ -60,7 +70,7 @@ internal static class Pruning
             beta < Eval.MateBound &&
             !inCheck &&
             HasNonPawnMaterial(position, position.Turn) &&
-            Eval.Evaluate(position) >= beta)
+            staticEval >= beta)
         {
             int reduction = 3 + depth / 6;
             position.MakeNullMove();

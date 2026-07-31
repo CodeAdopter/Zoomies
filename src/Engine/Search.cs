@@ -55,8 +55,16 @@ public sealed class Search
 
         for (int depth = 1; depth <= maxDepth; depth++)
         {
-            int score = Pruning.AlphaBeta(
-                state, position, depth, -SearchState.Infinity, SearchState.Infinity, 0);
+            // mate aspiration window
+            int alpha = -SearchState.Infinity;
+            int beta = SearchState.Infinity;
+            if (lastScore >= Eval.MateBound) alpha = lastScore - 1;
+            else if (lastScore <= -Eval.MateBound) beta = lastScore + 1;
+
+            int score = Pruning.AlphaBeta(state, position, depth, alpha, beta, 0);
+            if ((score <= alpha || score >= beta) && !state.StopRequested)
+                score = Pruning.AlphaBeta(
+                    state, position, depth, -SearchState.Infinity, SearchState.Infinity, 0);
             if (state.StopRequested && depth > 1) break;
 
             lastScore = score;
@@ -68,12 +76,16 @@ public sealed class Search
                 long nodesPerSecond = elapsedMilliseconds > 0
                     ? state.NodeCount * 1000 / elapsedMilliseconds
                     : state.NodeCount;
+                string scoreText = score >= Eval.MateBound
+                    ? $"mate {(Eval.MateValue - score + 1) / 2}"
+                    : score <= -Eval.MateBound
+                        ? $"mate {-((Eval.MateValue + score + 1) / 2)}"
+                        : $"cp {score}";
                 Console.WriteLine(
-                    $"info depth {depth} score cp {score} nodes {state.NodeCount} " +
+                    $"info depth {depth} score {scoreText} nodes {state.NodeCount} " +
                     $"nps {nodesPerSecond} time {elapsedMilliseconds} pv {state.PrincipalVariationMove}");
             }
 
-            if (Math.Abs(score) >= Eval.MateBound) break;
             if (state.ReachedSearchLimit()) break;
         }
 

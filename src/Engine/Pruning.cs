@@ -16,6 +16,17 @@ internal static class Pruning
         if (ply > 0 && (position.HasRepeated() || position.IsFiftyMoveRule()))
             return 0;
 
+        // mate distance pruning
+        if (ply > 0)
+        {
+            alpha = Math.Max(alpha, -Eval.MateValue + ply);
+            beta = Math.Min(beta, Eval.MateValue - ply - 1);
+            if (alpha >= beta) return alpha;
+        }
+
+        if (ply >= SearchState.MaximumPly - 1)
+            return Eval.Evaluate(position);
+
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
         if (ttHit && ply > 0 && ttEntry.Depth >= depth)
@@ -32,12 +43,15 @@ internal static class Pruning
             }
         }
 
+        bool inCheck = position.InCheck(position.Turn);
+
+        // check extensions
+        if (inCheck) depth++;
+
         if (depth <= 0)
             return Quiescence.Search(state, position, alpha, beta, ply);
 
         state.NodeCount++;
-
-        bool inCheck = position.InCheck(position.Turn);
 
         // null move pruning
         if (allowNullMove &&

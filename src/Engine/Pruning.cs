@@ -151,9 +151,22 @@ internal static class Pruning
         int bestScore = -SearchState.Infinity;
         Move bestMove = default;
 
+        // futility pruning
+        bool futile = !inCheck &&
+            depth <= 2 &&
+            alpha > -Eval.MateBound &&
+            staticEval + 100 + 120 * depth <= alpha;
+
         for (int i = 0; i < moveCount; i++)
         {
             Move move = moves[i];
+
+            if (futile &&
+                bestScore > -SearchState.Infinity &&
+                !move.IsCapture &&
+                (move.Flags & MoveFlags.Promotions) == 0)
+                continue;
+
             position.Play(sideToMove, move);
 
             // late move reductions

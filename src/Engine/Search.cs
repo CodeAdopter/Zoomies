@@ -35,6 +35,8 @@ public sealed class Search
 
     public void NewGame() => state.Tt.Clear();
 
+    public void ResizeHash(int sizeMb) => state.Tt.Resize(sizeMb);
+
     public Move FindBestMove(Position position, SearchLimits limits)
     {
         state.Reset(in limits);

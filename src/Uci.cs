@@ -8,6 +8,8 @@ namespace Zoomies;
 public static class Uci
 {
     private const string EngineName = "Zoomies 1";
+
+    private const int MaxHashMb = 16384;
     private const int DefaultSearchDepth = 8;
     private const int DefaultBenchmarkDepth = 9;
 
@@ -44,6 +46,11 @@ public static class Uci
 
                 case "isready":
                     Console.WriteLine("readyok");
+                    break;
+
+                case "setoption":
+                    StopActiveSearch();
+                    ParseSetOption(search, tokens);
                     break;
 
                 case "ucinewgame":
@@ -103,7 +110,25 @@ public static class Uci
     {
         Console.WriteLine($"id name {EngineName}");
         Console.WriteLine("id author Angelo Wolff");
+        Console.WriteLine($"option name Hash type spin default 16 min 1 max {MaxHashMb}");
         Console.WriteLine("uciok");
+    }
+
+    private static void ParseSetOption(Search search, string[] tokens)
+    {
+        int nameIndex = Array.IndexOf(tokens, "name");
+        int valueIndex = Array.IndexOf(tokens, "value");
+        if (nameIndex < 0 || valueIndex < nameIndex + 2 || valueIndex + 1 >= tokens.Length)
+            return;
+
+        string name = string.Join(' ', tokens[(nameIndex + 1)..valueIndex]);
+        switch (name.ToLowerInvariant())
+        {
+            case "hash":
+                if (int.TryParse(tokens[valueIndex + 1], out int sizeMb))
+                    search.ResizeHash(Math.Clamp(sizeMb, 1, MaxHashMb));
+                break;
+        }
     }
 
     private static void ParsePosition(Position position, string[] tokens)

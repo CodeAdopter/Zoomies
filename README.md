@@ -6,6 +6,7 @@ Zoomies Versions
 | Version | Rating |
 | -------- | -------- |
 | v1.0 | ~2000 |
+| v1.18 | ~2600 |
 | ? | ? |
 
 ## Requirements

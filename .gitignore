@@ -1,3 +1,6 @@
 bin/
 obj/
 .vs/
+nnue/candidate.*
+nnue/archive/
+nnue/*.ckpt

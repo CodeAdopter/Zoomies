@@ -9,7 +9,7 @@ public static class Eval
     public const int MateValue = 30000;
     public const int MateBound = MateValue - 1000;
 
-    public static int Evaluate(Position pos) => Taper(pos, pos.WhiteEvaluation);
+    public static int Evaluate(Position pos) => Nnue.Loaded ? Nnue.Evaluate(pos) : Taper(pos, pos.WhiteEvaluation);
 
     public static int EvaluateScratch(Position pos)
     {

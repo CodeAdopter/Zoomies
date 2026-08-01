@@ -169,22 +169,26 @@ internal static class Pruning
 
             position.Play(sideToMove, move);
 
-            // late move reductions
+            // principal variation search
             int score;
-            if (i >= 4 &&
-                depth >= 3 &&
-                !inCheck &&
-                !move.IsCapture &&
-                (move.Flags & MoveFlags.Promotions) == 0)
+            if (i == 0)
             {
-                int reduction = 1 + depth / 8 + i / 16;
-                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1);
-                if (score > alpha)
-                    score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
+                score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
             }
             else
             {
-                score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
+                // late move reductions
+                int reduction = i >= 4 &&
+                    depth >= 3 &&
+                    !inCheck &&
+                    !move.IsCapture &&
+                    (move.Flags & MoveFlags.Promotions) == 0
+                        ? 1 + depth / 8 + i / 16
+                        : 0;
+
+                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1);
+                if (score > alpha && (reduction > 0 || score < beta))
+                    score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
             }
 
             position.Undo(sideToMove, move);

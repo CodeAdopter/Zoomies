@@ -81,6 +81,10 @@ internal static class Quiescence
                     continue;
             }
 
+            // prune losing captures
+            if (!See.Ge(position, move))
+                continue;
+
             position.PlayPerft(sideToMove, move);
             if (position.InCheck(sideToMove))
             {

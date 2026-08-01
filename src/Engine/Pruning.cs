@@ -167,6 +167,13 @@ internal static class Pruning
                 (move.Flags & MoveFlags.Promotions) == 0)
                 continue;
 
+            // SEE pruning: skip captures losing too much material at low depth
+            if (bestScore > -SearchState.Infinity &&
+                depth <= 8 &&
+                move.IsCapture &&
+                !See.Ge(position, move, -100 * depth))
+                continue;
+
             position.Play(sideToMove, move);
 
             // principal variation search

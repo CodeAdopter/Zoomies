@@ -55,16 +55,32 @@ public sealed class Search
 
         for (int depth = 1; depth <= maxDepth; depth++)
         {
-            // mate aspiration window
+            // aspiration windows: start narrow around the previous score,
+            // widen exponentially on fail until the score fits
             int alpha = -SearchState.Infinity;
             int beta = SearchState.Infinity;
-            if (lastScore >= Eval.MateBound) alpha = lastScore - 1;
-            else if (lastScore <= -Eval.MateBound) beta = lastScore + 1;
+            int delta = 25;
+            if (depth >= 4)
+            {
+                alpha = Math.Max(lastScore - delta, -SearchState.Infinity);
+                beta = Math.Min(lastScore + delta, SearchState.Infinity);
+            }
 
-            int score = Pruning.AlphaBeta(state, position, depth, alpha, beta, 0);
-            if ((score <= alpha || score >= beta) && !state.StopRequested)
-                score = Pruning.AlphaBeta(
-                    state, position, depth, -SearchState.Infinity, SearchState.Infinity, 0);
+            int score;
+            while (true)
+            {
+                score = Pruning.AlphaBeta(state, position, depth, alpha, beta, 0);
+                if (state.StopRequested) break;
+
+                if (score <= alpha)
+                    alpha = Math.Max(score - delta, -SearchState.Infinity);
+                else if (score >= beta)
+                    beta = Math.Min(score + delta, SearchState.Infinity);
+                else
+                    break;
+
+                delta *= 2;
+            }
             if (state.StopRequested && depth > 1) break;
 
             lastScore = score;

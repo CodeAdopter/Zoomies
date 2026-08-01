@@ -4,6 +4,17 @@ namespace Zoomies.Engine;
 
 internal static class Pruning
 {
+    private static readonly int[] LmrTable = BuildLmrTable();
+
+    private static int[] BuildLmrTable()
+    {
+        var t = new int[64 * 64];
+        for (int d = 1; d < 64; d++)
+            for (int m = 1; m < 64; m++)
+                t[(d << 6) | m] = (int)(0.75 + Math.Log(d) * Math.Log(m) / 2.25);
+        return t;
+    }
+
     public static int AlphaBeta(SearchState state, Position position, int depth, int alpha, int beta, int ply, bool allowNullMove = true)
     {
         if (state.StopRequested) return 0;
@@ -150,6 +161,7 @@ internal static class Pruning
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
         Move bestMove = default;
+        bool isPv = beta - alpha > 1;
 
         // futility pruning
         bool futile = !inCheck &&
@@ -185,13 +197,21 @@ internal static class Pruning
             else
             {
                 // late move reductions
-                int reduction = i >= 4 &&
-                    depth >= 3 &&
+                int reduction = 0;
+                if (depth >= 3 &&
+                    i >= (isPv ? 2 : 1) &&
                     !inCheck &&
                     !move.IsCapture &&
-                    (move.Flags & MoveFlags.Promotions) == 0
-                        ? 1 + depth / 8 + i / 16
-                        : 0;
+                    (move.Flags & MoveFlags.Promotions) == 0 &&
+                    move != state.KillerMoves[ply, 0] &&
+                    move != state.KillerMoves[ply, 1])
+                {
+                    int rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
+                    if (isPv) rr--;
+                    if (state.QuietHistory[HistoryIndex(sideToMove, move)] > 4000) rr--;
+                    if (rr < 1) rr = 1;
+                    reduction = Math.Min(rr, depth - 2);
+                }
 
                 score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1);
                 if (score > alpha && (reduction > 0 || score < beta))

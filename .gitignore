@@ -4,3 +4,4 @@ obj/
 nnue/candidate.*
 nnue/archive/
 nnue/*.ckpt
+nnue/best-prev.nnue

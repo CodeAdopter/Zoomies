@@ -133,6 +133,7 @@ public class Position
 
     public void MakeNullMove()
     {
+        if (NnueSt != null) Engine.Nnue.OnPlayNull(this);
         hash ^= StateHash(History[gamePly].Castling, History[gamePly].EnPassantSquare);
         hash ^= Zobrist.SideToMove;
         sideToPlay = sideToPlay.Flip();
@@ -152,6 +153,7 @@ public class Position
         sideToPlay = sideToPlay.Flip();
         --gamePly;
         hash = History[gamePly].Hash;
+        if (NnueSt != null) Engine.Nnue.OnUndo(this);
     }
 
     private void MovePieceQuietNoHash(Square from, Square to)
@@ -311,8 +313,12 @@ public class Position
         return AttackersFrom(c.Flip(), kingSquare, AllPieces(Color.White) | AllPieces(Color.Black)) != 0;
     }
 
+    // NNUE state
+    public Engine.Nnue.State? NnueSt;
+
     public void Play(Color us, Move m)
     {
+        if (NnueSt != null) Engine.Nnue.OnPlay(this, us, m);
         hash ^= StateHash(History[gamePly].Castling, History[gamePly].EnPassantSquare);
         sideToPlay = sideToPlay.Flip();
         ++gamePly;
@@ -510,10 +516,12 @@ public class Position
 
         sideToPlay = sideToPlay.Flip();
         --gamePly;
+        if (NnueSt != null) Engine.Nnue.OnUndo(this);
     }
 
     public void PlayPerft(Color us, Move m)
     {
+        if (NnueSt != null) Engine.Nnue.OnPlay(this, us, m);
         sideToPlay = sideToPlay.Flip();
         ++gamePly;
         var type = m.Flags;
@@ -639,6 +647,7 @@ public class Position
         }
         sideToPlay = sideToPlay.Flip();
         --gamePly;
+        if (NnueSt != null) Engine.Nnue.OnUndo(this);
     }
 
     public bool IsRepetition()
@@ -775,6 +784,7 @@ public class Position
         p.Checkers = 0;
         p.Pinned = 0;
         p.History[0] = new UndoInfo();
+        p.NnueSt?.Reset();
 
         int square = (int)Square.a8;
         int fenIdx = 0;

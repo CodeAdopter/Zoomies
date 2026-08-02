@@ -7,8 +7,8 @@ namespace Zoomies.Engine;
 public static class Nnue
 {
     public const int Rows = 768;
-    private const int QA = 255, QO = 1024, Scale = 600;
-
+    private const int QA = 181, QO = 1024, Scale = 600;
+    
     private static short[] ftB = [], ftW = [], outW = [];
     private static int outB, l1;
 
@@ -20,12 +20,15 @@ public static class Nnue
     {
         var bytes = System.IO.File.ReadAllBytes(path);
         var s = bytes.AsSpan();
-        if (bytes.Length < 20 || !s[..8].SequenceEqual("ZOO768A1"u8))
-            throw new InvalidDataException($"{path}: not a ZOO768A1 net");
+        if (bytes.Length < 20 || !s[..8].SequenceEqual("ZOO768A2"u8))
+            throw new InvalidDataException($"{path}: not a ZOO768A2 net");
         uint ver = BinaryPrimitives.ReadUInt32LittleEndian(s[8..]);
         uint rows = BinaryPrimitives.ReadUInt32LittleEndian(s[12..]);
         int n = BinaryPrimitives.ReadUInt16LittleEndian(s[16..]);
-        if (ver != 1 || rows != Rows) throw new InvalidDataException($"{path}: unsupported ZOO768A1 ver {ver} rows {rows}");
+        bool screlu = (s[18] & 1) != 0;
+        int ob = s[19];
+        if (ver != 1 || rows != Rows || !screlu || ob != 1)
+            throw new InvalidDataException($"{path}: unsupported ZOO768A2 (ver {ver} rows {rows} screlu {screlu} buckets {ob})");
         long need = 20 + 2L * n + 2L * Rows * n + 4 + 2L * 2 * n;
         if (bytes.Length != need) throw new InvalidDataException($"{path}: size {bytes.Length} != expected {need} for l1={n}");
 
@@ -35,15 +38,15 @@ public static class Nnue
         int off = 20;
         for (int i = 0; i < n; i++, off += 2) fb[i] = BinaryPrimitives.ReadInt16LittleEndian(s[off..]);
         for (int i = 0; i < Rows * n; i++, off += 2) fw[i] = BinaryPrimitives.ReadInt16LittleEndian(s[off..]);
-        int ob = BinaryPrimitives.ReadInt32LittleEndian(s[off..]); off += 4;
+        int ob0 = BinaryPrimitives.ReadInt32LittleEndian(s[off..]); off += 4;
         for (int i = 0; i < 2 * n; i++, off += 2) ow[i] = BinaryPrimitives.ReadInt16LittleEndian(s[off..]);
 
-        ftB = fb; ftW = fw; outW = ow; outB = ob; l1 = n;
+        ftB = fb; ftW = fw; outW = ow; outB = ob0; l1 = n;
         Loaded = true;
         LoadedPath = path;
     }
 
-    public static void Unload() { Loaded = false; ftB = []; ftW = []; outW = []; l1 = 0; LoadedPath = ""; }
+    public static void Unload() { Loaded = false; ftB = []; ftW = []; outW = []; outB = 0; l1 = 0; LoadedPath = ""; }
 
     public static void AutoLoad()
     {
@@ -214,36 +217,37 @@ public static class Nnue
         }
     }
 
-    // Output layer: clipped-ReLU both perspective halves (side to move first), dot with the output weights, scale to centipawns.
+    // Output layer: squared clipped-ReLU both perspective halves (side to move first), dot with the output weights, scale to centipawns.
     private static int Output(ReadOnlySpan<short> acc, int stm)
     {
         int n = l1;
         long sum = outB
-            + Dot(acc.Slice(stm * n, n), outW.AsSpan(0, n))
-            + Dot(acc.Slice((stm ^ 1) * n, n), outW.AsSpan(n, n));
-        int cp = (int)(sum * Scale / (QA * (long)QO));
+            + DotSq(acc.Slice(stm * n, n), outW.AsSpan(0, n))
+            + DotSq(acc.Slice((stm ^ 1) * n, n), outW.AsSpan(n, n));
+        int cp = (int)(sum * Scale / ((long)QA * QA * QO));
         return Math.Clamp(cp, -Eval.MateBound + 1, Eval.MateBound - 1);
     }
 
-    // SIMD dot product of one accumulator half (clamped to 0..QA on the fly) with its output-weight half.
-    private static long Dot(ReadOnlySpan<short> acc, ReadOnlySpan<short> w)
+    private static long DotSq(ReadOnlySpan<short> acc, ReadOnlySpan<short> w)
     {
         ref short ra = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(acc);
         ref short rw = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(w);
         var zero = Vector<short>.Zero;
         var qa = new Vector<short>((short)QA);
+        long sum = 0;
         var accum = Vector<int>.Zero;
         int v = Vector<short>.Count, len = acc.Length;
-        int j = 0;
+        int j = 0, sinceDrain = 0;
         for (; j + v <= len; j += v)
         {
             var a = Vector.Min(Vector.Max(Vector.LoadUnsafe(ref ra, (nuint)j), zero), qa);
-            Vector.Widen(a, out Vector<int> a0, out Vector<int> a1);
+            Vector.Widen(a * a, out Vector<int> s0, out Vector<int> s1);
             Vector.Widen(Vector.LoadUnsafe(ref rw, (nuint)j), out Vector<int> w0, out Vector<int> w1);
-            accum += a0 * w0 + a1 * w1;
+            accum += s0 * w0 + s1 * w1;
+            if (++sinceDrain == 16) { sum += Vector.Sum(accum); accum = Vector<int>.Zero; sinceDrain = 0; }
         }
-        long sum = Vector.Sum(accum);
-        for (; j < len; j++) sum += Math.Clamp((int)acc[j], 0, QA) * w[j];
+        sum += Vector.Sum(accum);
+        for (; j < len; j++) { int c = Math.Clamp((int)acc[j], 0, QA); sum += c * c * w[j]; }
         return sum;
     }
 

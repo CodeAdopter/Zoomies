@@ -1,7 +1,5 @@
 bin/
 obj/
 .vs/
-nnue/candidate.*
-nnue/archive/
-nnue/*.ckpt
-nnue/best-prev.nnue
+nnue/*
+!nnue/best.nnue

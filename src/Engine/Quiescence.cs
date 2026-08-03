@@ -17,7 +17,7 @@ internal static class Quiescence
         state.QuiescenceNodeCount++;
 
         state.EvaluationCount++;
-        int standingPatScore = Eval.Evaluate(position);
+        int standingPatScore = Pruning.CorrectEval(state, position, Eval.Evaluate(position));
         if (standingPatScore >= beta) return standingPatScore;
         if (standingPatScore > alpha) alpha = standingPatScore;
         if (ply >= SearchState.MaximumPly - 1) return standingPatScore;

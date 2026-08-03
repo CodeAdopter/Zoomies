@@ -6,6 +6,7 @@ public struct SearchLimits
 {
     public int MaxDepth;
     public long MoveTimeMilliseconds;
+    public long SoftTimeMilliseconds;
     public long MaxNodes;
     public bool SearchUntilStopped;
 
@@ -105,6 +106,10 @@ public sealed class Search
             }
 
             if (state.ReachedSearchLimit()) break;
+            // don't start another iteration if time is running out;
+            // the hard limit still ends the search immediately
+            if (!state.SearchUntilStopped &&
+                state.Clock.ElapsedMilliseconds >= state.SoftTimeLimitMilliseconds) break;
         }
 
         state.StopRequested = false;

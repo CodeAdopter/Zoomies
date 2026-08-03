@@ -273,6 +273,12 @@ internal static class Pruning
                     state.KillerMoves[ply, 0] = move;
                 }
             }
+            else
+            {
+                PenalizeQuiets(
+                    state, position, sideToMove, default,
+                    triedQuiets[..triedQuietCount], depth, previous1, previous2);
+            }
             break;
         }
 
@@ -313,13 +319,26 @@ internal static class Pruning
         SearchState state, Position position, Color side, Move cutoffMove,
         ReadOnlySpan<Move> triedQuiets, int depth, int previous1, int previous2)
     {
-        int bonus = Math.Min(1200, 16 * depth * depth + 32 * depth + 16);
+        int bonus = HistoryBonus(depth);
 
         UpdateQuietHistory(state, position, side, cutoffMove, bonus, previous1, previous2);
+        PenalizeQuiets(state, position, side, cutoffMove, triedQuiets, depth, previous1, previous2);
+    }
+
+    // penalize quiet moves searched before the cutoff
+    // also do this if the cutoff move is a capture or promotion
+    private static void PenalizeQuiets(
+        SearchState state, Position position, Color side, Move cutoffMove,
+        ReadOnlySpan<Move> triedQuiets, int depth, int previous1, int previous2)
+    {
+        int malus = -HistoryBonus(depth);
         foreach (Move tried in triedQuiets)
             if (tried != cutoffMove)
-                UpdateQuietHistory(state, position, side, tried, -bonus, previous1, previous2);
+                UpdateQuietHistory(state, position, side, tried, malus, previous1, previous2);
     }
+
+    private static int HistoryBonus(int depth) =>
+        Math.Min(1200, 16 * depth * depth + 32 * depth + 16);
 
     private static void UpdateQuietHistory(
         SearchState state, Position position, Color side, Move move, int bonus, int previous1, int previous2)

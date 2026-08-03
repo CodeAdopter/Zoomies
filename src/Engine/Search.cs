@@ -48,7 +48,11 @@ public sealed class Search
 
     public void ResetStopRequest() => state.StopRequested = false;
 
-    public void NewGame() => state.Tt.Clear();
+    public void NewGame()
+    {
+        state.Tt.Clear();
+        state.ClearHistory();
+    }
 
     public void ResizeHash(int sizeMb) => state.Tt.Resize(sizeMb);
 

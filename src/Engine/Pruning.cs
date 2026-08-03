@@ -95,6 +95,7 @@ internal static class Pruning
             pruneEval >= beta)
         {
             int reduction = 3 + depth / 6;
+            state.PlayedPieceTo[ply] = -1;
             position.MakeNullMove();
             int nullScore = -AlphaBeta(state, position, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false);
             position.UnmakeNullMove();
@@ -148,9 +149,12 @@ internal static class Pruning
 
         Color sideToMove = position.Turn;
 
+        int previous1 = ply >= 1 ? state.PlayedPieceTo[ply - 1] : -1;
+        int previous2 = ply >= 2 ? state.PlayedPieceTo[ply - 2] : -1;
+
         Span<int> quietScores = stackalloc int[256];
         for (int i = quietStart; i < moveCount; i++)
-            quietScores[i] = state.QuietHistory[HistoryIndex(sideToMove, moves[i])];
+            quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2);
 
         for (int i = quietStart + 1; i < moveCount; i++)
         {
@@ -180,14 +184,27 @@ internal static class Pruning
             alpha > -Eval.MateBound &&
             pruneEval + 100 + 120 * depth <= alpha;
 
+        Span<Move> triedQuiets = stackalloc Move[64];
+        int triedQuietCount = 0;
+
         for (int i = 0; i < moveCount; i++)
         {
             Move move = moves[i];
+            bool isQuiet = !move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0;
 
             if (futile &&
                 bestScore > -SearchState.Infinity &&
-                !move.IsCapture &&
-                (move.Flags & MoveFlags.Promotions) == 0)
+                isQuiet)
+                continue;
+
+            // history pruning: skip quiets with very poor history at low depth
+            if (bestScore > -SearchState.Infinity &&
+                !inCheck &&
+                depth <= 4 &&
+                isQuiet &&
+                i >= quietStart &&
+                alpha > -Eval.MateBound &&
+                quietScores[i] < -2048 * depth)
                 continue;
 
             // SEE pruning: skip captures losing too much material at low depth
@@ -197,6 +214,10 @@ internal static class Pruning
                 !See.Ge(position, move, -100 * depth))
                 continue;
 
+            if (isQuiet && triedQuietCount < triedQuiets.Length)
+                triedQuiets[triedQuietCount++] = move;
+
+            state.PlayedPieceTo[ply] = ((int)position.At(move.From) << 6) | (int)move.To;
             position.Play(sideToMove, move);
 
             // principal variation search
@@ -212,14 +233,13 @@ internal static class Pruning
                 if (depth >= 3 &&
                     i >= (isPv ? 2 : 1) &&
                     !inCheck &&
-                    !move.IsCapture &&
-                    (move.Flags & MoveFlags.Promotions) == 0 &&
+                    isQuiet &&
                     move != state.KillerMoves[ply, 0] &&
                     move != state.KillerMoves[ply, 1])
                 {
                     int rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
                     if (isPv) rr--;
-                    if (state.QuietHistory[HistoryIndex(sideToMove, move)] > 4000) rr--;
+                    if (i >= quietStart) rr -= quietScores[i] / 8192;
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);
                 }
@@ -242,10 +262,11 @@ internal static class Pruning
             if (score > alpha) alpha = score;
             if (alpha < beta) continue;
 
-            if (!move.IsCapture &&
-                (move.Flags & MoveFlags.Promotions) == 0)
+            if (isQuiet)
             {
-                state.QuietHistory[HistoryIndex(sideToMove, move)] += depth * depth; // d^2
+                UpdateQuietHistories(
+                    state, position, sideToMove, move,
+                    triedQuiets[..triedQuietCount], depth, previous1, previous2);
                 if (state.KillerMoves[ply, 0] != move)
                 {
                     state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
@@ -268,8 +289,51 @@ internal static class Pruning
         return bestScore;
     }
 
+    private const int MaxHistory = 8192;
+
     private static int HistoryIndex(Color side, Move move) =>
         ((int)side << 12) | ((int)move.From << 6) | (int)move.To;
+
+    private static int PieceToIndex(Position position, Move move) =>
+        ((int)position.At(move.From) << 6) | (int)move.To;
+
+    private static int QuietHistoryScore(
+        SearchState state, Position position, Color side, Move move, int previous1, int previous2)
+    {
+        int pieceTo = PieceToIndex(position, move);
+        int score = state.QuietHistory[HistoryIndex(side, move)];
+        if (previous1 >= 0)
+            score += state.ContinuationHistory1[previous1 * SearchState.PieceToCount + pieceTo];
+        if (previous2 >= 0)
+            score += state.ContinuationHistory2[previous2 * SearchState.PieceToCount + pieceTo];
+        return score;
+    }
+
+    private static void UpdateQuietHistories(
+        SearchState state, Position position, Color side, Move cutoffMove,
+        ReadOnlySpan<Move> triedQuiets, int depth, int previous1, int previous2)
+    {
+        int bonus = Math.Min(1200, 16 * depth * depth + 32 * depth + 16);
+
+        UpdateQuietHistory(state, position, side, cutoffMove, bonus, previous1, previous2);
+        foreach (Move tried in triedQuiets)
+            if (tried != cutoffMove)
+                UpdateQuietHistory(state, position, side, tried, -bonus, previous1, previous2);
+    }
+
+    private static void UpdateQuietHistory(
+        SearchState state, Position position, Color side, Move move, int bonus, int previous1, int previous2)
+    {
+        int pieceTo = PieceToIndex(position, move);
+        Gravity(ref state.QuietHistory[HistoryIndex(side, move)], bonus);
+        if (previous1 >= 0)
+            Gravity(ref state.ContinuationHistory1[previous1 * SearchState.PieceToCount + pieceTo], bonus);
+        if (previous2 >= 0)
+            Gravity(ref state.ContinuationHistory2[previous2 * SearchState.PieceToCount + pieceTo], bonus);
+    }
+
+    // update the history value, giving more weight to recent results while keeping it bounded
+    private static void Gravity(ref int entry, int bonus) => entry += bonus - entry * Math.Abs(bonus) / MaxHistory;
 
     private static bool HasNonPawnMaterial(Position position, Color side) =>
         (position.BitboardOf(side, PieceType.Knight) |

@@ -213,7 +213,11 @@ public static class MoveGeneration
                     else if (checkerPiece == Types.MakePiece(themColor, PieceType.Knight))
                     {
                         b1 = pos.AttackersFrom(usColor, checkerSquare, all) & notPinned;
-                        sink.FromMask(b1, checkerSquare, MoveFlags.Capture);
+                        // a pawn can promote by capturing the checking piece
+                        ulong promoPawns = b1 & usPawns & Bitboard.RankMask(Types.RelativeRank(usColor, Rank.Rank7));
+                        sink.FromMask(b1 ^ promoPawns, checkerSquare, MoveFlags.Capture);
+                        while (promoPawns != 0)
+                            sink.PromoCaptures(Bitboard.PopLsb(ref promoPawns), checkers);
                         return;
                     }
                     else

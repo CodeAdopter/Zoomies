@@ -20,11 +20,13 @@ public sealed class SearchState
     public volatile bool StopRequested;
     public Move PrincipalVariationMove;
     public const int PieceToCount = 14 * 64;
+    public const int CorrectionHistorySize = 16384;
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
     public readonly int[] ContinuationHistory1 = new int[PieceToCount * PieceToCount];
     public readonly int[] ContinuationHistory2 = new int[PieceToCount * PieceToCount];
+    public readonly int[] PawnCorrectionHistory = new int[2 * CorrectionHistorySize];
     public readonly int[] PlayedPieceTo = new int[MaximumPly]; // -1 = none (root/null move)
 
     public readonly Stopwatch Clock = new();
@@ -58,6 +60,7 @@ public sealed class SearchState
         Array.Clear(QuietHistory, 0, QuietHistory.Length);
         Array.Clear(ContinuationHistory1, 0, ContinuationHistory1.Length);
         Array.Clear(ContinuationHistory2, 0, ContinuationHistory2.Length);
+        Array.Clear(PawnCorrectionHistory, 0, PawnCorrectionHistory.Length);
     }
 
     public bool ReachedSearchLimit()

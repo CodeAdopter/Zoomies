@@ -64,7 +64,7 @@ internal static class Pruning
 
         state.NodeCount++;
 
-        int staticEval = inCheck ? 0 : Eval.Evaluate(position);
+        int staticEval = inCheck ? 0 : CorrectEval(state, position, Eval.Evaluate(position));
 
         // TT score as pruning bound:
         // Prune with the TT score when it provides a tighter bound than the static eval.
@@ -285,6 +285,16 @@ internal static class Pruning
         TtFlag storeFlag = bestScore >= beta ? TtFlag.Lower
             : bestScore > alphaOriginal ? TtFlag.Exact
             : TtFlag.Upper;
+
+        // update the correction table with the difference between the search score
+        // and static eval when the result is suitable for learning
+        if (!inCheck &&
+            Math.Abs(bestScore) < Eval.MateBound &&
+            !bestMove.IsCapture && (bestMove.Flags & MoveFlags.Promotions) == 0 &&
+            !(storeFlag == TtFlag.Lower && bestScore <= staticEval) &&
+            !(storeFlag == TtFlag.Upper && bestScore >= staticEval))
+            UpdateCorrectionHistory(state, position, depth, bestScore - staticEval);
+
         state.Tt.Store(
             key,
             bestMove.EncodedValue,
@@ -353,6 +363,40 @@ internal static class Pruning
 
     // update the history value, giving more weight to recent results while keeping it bounded
     private static void Gravity(ref int entry, int bonus) => entry += bonus - entry * Math.Abs(bonus) / MaxHistory;
+
+    private const int CorrectionGrain = 256;
+    private const int CorrectionWeight = 256;
+    private const int CorrectionMax = 32 * CorrectionGrain;
+
+    // adjust the static eval using the average search correction
+    // for positions with the same pawn structure
+    public static int CorrectEval(SearchState state, Position position, int rawEval)
+    {
+        int correction = state.PawnCorrectionHistory[CorrectionIndex(position)];
+        return Math.Clamp(rawEval + correction / CorrectionGrain, -Eval.MateBound + 1, Eval.MateBound - 1);
+    }
+
+    private static void UpdateCorrectionHistory(SearchState state, Position position, int depth, int diff)
+    {
+        int weight = Math.Min(depth + 1, 16);
+        ref int entry = ref state.PawnCorrectionHistory[CorrectionIndex(position)];
+        long value = ((long)entry * (CorrectionWeight - weight) + (long)diff * CorrectionGrain * weight) / CorrectionWeight;
+        entry = (int)Math.Clamp(value, -CorrectionMax, CorrectionMax);
+    }
+
+    private static int CorrectionIndex(Position position) =>
+        ((int)position.Turn * SearchState.CorrectionHistorySize) +
+        (int)(MixKey(MixKey(position.BitboardOf(Color.White, PieceType.Pawn))
+                   ^ position.BitboardOf(Color.Black, PieceType.Pawn))
+              & (SearchState.CorrectionHistorySize - 1));
+
+    private static ulong MixKey(ulong x)
+    {
+        x ^= x >> 33; x *= 0xFF51AFD7ED558CCDUL;
+        x ^= x >> 33; x *= 0xC4CEB9FE1A85EC53UL;
+        x ^= x >> 33;
+        return x;
+    }
 
     private static bool HasNonPawnMaterial(Position position, Color side) =>
         (position.BitboardOf(side, PieceType.Knight) |

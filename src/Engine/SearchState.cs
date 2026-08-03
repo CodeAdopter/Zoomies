@@ -14,6 +14,7 @@ public sealed class SearchState
     public long EvaluationCount;
     public long TimeLimitMilliseconds;
     public long SoftTimeLimitMilliseconds;
+    public bool HasSoftLimit;
     public long NodeLimit;
     public bool SearchUntilStopped;
     public volatile bool StopRequested;
@@ -39,6 +40,7 @@ public sealed class SearchState
         SoftTimeLimitMilliseconds = limits.SoftTimeMilliseconds > 0
             ? limits.SoftTimeMilliseconds
             : TimeLimitMilliseconds;
+        HasSoftLimit = limits.SoftTimeMilliseconds > 0;
         NodeLimit = limits.MaxNodes;
         PrincipalVariationMove = default;
         Array.Clear(KillerMoves, 0, KillerMoves.Length);

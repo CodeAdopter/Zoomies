@@ -20,6 +20,20 @@ public struct SearchLimits
 
 public sealed class Search
 {
+    private const double StabilityPeak = 2.6;
+    private const double StabilityFloor = 0.5;
+    private const double StabilityDecay = 0.3;
+    private static readonly int[] StabilityScale = BuildStabilityScale();
+
+    private static int[] BuildStabilityScale()
+    {
+        var table = new int[8];
+        for (int s = 0; s < table.Length; s++)
+            table[s] = (int)Math.Round(
+                100 * (StabilityFloor + (StabilityPeak - StabilityFloor) * Math.Pow(StabilityDecay, s)));
+        return table;
+    }
+
     private readonly SearchState state = new();
 
     public bool SuppressOutput { get; set; }
@@ -55,6 +69,8 @@ public sealed class Search
         int maxDepth = limits.MaxDepth > 0 ? limits.MaxDepth : SearchState.MaximumPly - 1;
         int lastScore = 0;
         int completedDepth = 0;
+        Move previousBest = default;
+        int stability = 0;
 
         for (int depth = 1; depth <= maxDepth; depth++)
         {
@@ -106,10 +122,18 @@ public sealed class Search
             }
 
             if (state.ReachedSearchLimit()) break;
+
             // don't start another iteration if time is running out;
             // the hard limit still ends the search immediately
+            stability = state.PrincipalVariationMove == previousBest
+                ? Math.Min(stability + 1, StabilityScale.Length - 1)
+                : 0;
+            previousBest = state.PrincipalVariationMove;
+            long softLimit = state.HasSoftLimit
+                ? state.SoftTimeLimitMilliseconds * StabilityScale[stability] / 100
+                : state.SoftTimeLimitMilliseconds;
             if (!state.SearchUntilStopped &&
-                state.Clock.ElapsedMilliseconds >= state.SoftTimeLimitMilliseconds) break;
+                state.Clock.ElapsedMilliseconds >= softLimit) break;
         }
 
         state.StopRequested = false;

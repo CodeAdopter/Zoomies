@@ -200,6 +200,7 @@ public static class Uci
         long moveTime = 0;
         long nodeLimit = 0;
         int depth = 0;
+        int movesToGo = 0;
 
         for (int i = 1; i < tokens.Length - 1; i++)
         {
@@ -225,6 +226,9 @@ public static class Uci
                     break;
                 case "binc":
                     long.TryParse(tokens[i + 1], out blackIncrement);
+                    break;
+                case "movestogo":
+                    int.TryParse(tokens[i + 1], out movesToGo);
                     break;
             }
         }
@@ -254,10 +258,7 @@ public static class Uci
                 ? whiteIncrement
                 : blackIncrement;
 
-            const long communicationOverhead = 30;
-            long budget = remainingTime / 20 + increment / 2;
-            long safeMaximum = Math.Max(1, remainingTime - communicationOverhead);
-            limits.MoveTimeMilliseconds = Math.Clamp(budget, 1, safeMaximum);
+            limits = TimeManager.Allocate(remainingTime, increment, movesToGo);
         }
         else
         {

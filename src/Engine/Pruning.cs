@@ -40,9 +40,9 @@ internal static class Pruning
 
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
+        int ttScore = ttHit ? TranspositionTable.ScoreFromTt(ttEntry.Score, ply) : 0;
         if (ttHit && ply > 0 && ttEntry.Depth >= depth)
         {
-            int ttScore = TranspositionTable.ScoreFromTt(ttEntry.Score, ply);
             switch (ttEntry.Flag)
             {
                 case TtFlag.Exact:
@@ -66,13 +66,24 @@ internal static class Pruning
 
         int staticEval = inCheck ? 0 : Eval.Evaluate(position);
 
+        // TT score as pruning bound:
+        // Prune with the TT score when it provides a tighter bound than the static eval.
+        int pruneEval = staticEval;
+        if (ttHit &&
+            !inCheck &&
+            Math.Abs(ttScore) < Eval.MateBound &&
+            (ttEntry.Flag == TtFlag.Exact ||
+             (ttEntry.Flag == TtFlag.Lower && ttScore > staticEval) ||
+             (ttEntry.Flag == TtFlag.Upper && ttScore < staticEval)))
+            pruneEval = ttScore;
+
         // reverse futility pruning
         if (ply > 0 &&
             !inCheck &&
             depth <= 6 &&
             beta < Eval.MateBound &&
-            staticEval - 80 * depth >= beta)
-            return staticEval;
+            pruneEval - 80 * depth >= beta)
+            return pruneEval;
 
         // null move pruning
         if (allowNullMove &&
@@ -81,7 +92,7 @@ internal static class Pruning
             beta < Eval.MateBound &&
             !inCheck &&
             HasNonPawnMaterial(position, position.Turn) &&
-            staticEval >= beta)
+            pruneEval >= beta)
         {
             int reduction = 3 + depth / 6;
             position.MakeNullMove();
@@ -167,7 +178,7 @@ internal static class Pruning
         bool futile = !inCheck &&
             depth <= 2 &&
             alpha > -Eval.MateBound &&
-            staticEval + 100 + 120 * depth <= alpha;
+            pruneEval + 100 + 120 * depth <= alpha;
 
         for (int i = 0; i < moveCount; i++)
         {

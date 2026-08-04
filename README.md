@@ -1,13 +1,13 @@
-# Zoomies 1.0
+# Zoomies Chess Engine
 
 Zoomies is a compact, single-threaded UCI chess engine.
 
 Zoomies Versions
 | Version | Rating |
 | -------- | -------- |
-| v1.0 | ~2000 |
-| v1.18 | ~2600 |
-| ? | ? |
+| v1.0 (HCE) | ~2000 |
+| v1.18 (HCE) | ~2600 |
+| v2.18 (NNUE) | ~3450 |
 
 ## Requirements
 * Building from source: [.NET 10 SDK](https://dotnet.microsoft.com/download)

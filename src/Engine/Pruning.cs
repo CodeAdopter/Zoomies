@@ -65,6 +65,10 @@ internal static class Pruning
         // check extensions
         if (inCheck) depth++;
 
+        // internal iterative reduction
+        if (ply > 0 && depth >= 4 && !inCheck && (!ttHit || ttEntry.Move == 0))
+            depth--;
+
         if (depth <= 0)
             return Quiescence.Search(state, position, alpha, beta, ply);
 

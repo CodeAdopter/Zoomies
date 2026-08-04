@@ -21,6 +21,7 @@ public sealed class SearchState
     public Move PrincipalVariationMove;
     public const int PieceToCount = 14 * 64;
     public const int CorrectionHistorySize = 16384;
+    public const int NoStaticEval = int.MinValue / 2;
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
@@ -28,6 +29,7 @@ public sealed class SearchState
     public readonly int[] ContinuationHistory2 = new int[PieceToCount * PieceToCount];
     public readonly int[] PawnCorrectionHistory = new int[2 * CorrectionHistorySize];
     public readonly int[] PlayedPieceTo = new int[MaximumPly]; // -1 = none (root/null move)
+    public readonly int[] StaticEvalStack = new int[MaximumPly];
 
     public readonly Stopwatch Clock = new();
     public readonly TranspositionTable Tt = new(16);

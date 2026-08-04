@@ -4,6 +4,12 @@ namespace Zoomies.Engine;
 
 internal static class Pruning
 {
+    private static readonly int[] LmpThreshold = [0, 5, 8, 12, 18, 26, 36];
+    private const int LmpMaxDepth = 4;
+
+    private static int LmpBudget(int depth, bool improving) =>
+        Math.Max(LmpThreshold[depth] + (improving ? 2 : -1) - depth, 0);
+
     private static readonly int[] LmrTable = BuildLmrTable();
 
     private static int[] BuildLmrTable()
@@ -65,6 +71,10 @@ internal static class Pruning
         state.NodeCount++;
 
         int staticEval = inCheck ? 0 : CorrectEval(state, position, Eval.Evaluate(position));
+        state.StaticEvalStack[ply] = inCheck ? SearchState.NoStaticEval : staticEval;
+        bool improving = !inCheck && ply >= 2 &&
+            state.StaticEvalStack[ply - 2] != SearchState.NoStaticEval &&
+            staticEval > state.StaticEvalStack[ply - 2];
 
         // TT score as pruning bound:
         // Prune with the TT score when it provides a tighter bound than the static eval.
@@ -82,7 +92,7 @@ internal static class Pruning
             !inCheck &&
             depth <= 6 &&
             beta < Eval.MateBound &&
-            pruneEval - 80 * depth >= beta)
+            pruneEval - (80 + (improving ? 20 : -10)) * depth >= beta)
             return pruneEval;
 
         // null move pruning
@@ -182,7 +192,7 @@ internal static class Pruning
         bool futile = !inCheck &&
             depth <= 2 &&
             alpha > -Eval.MateBound &&
-            pruneEval + 100 + 120 * depth <= alpha;
+            pruneEval + 100 + 120 * depth + (improving ? 40 : -30) <= alpha;
 
         Span<Move> triedQuiets = stackalloc Move[64];
         int triedQuietCount = 0;
@@ -191,6 +201,15 @@ internal static class Pruning
         {
             Move move = moves[i];
             bool isQuiet = !move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0;
+
+            // late move pruning: after enough quiet moves have been searched at low depth
+            // skip the rest: tactical moves don't count toward the quiet move limit
+            if (!isPv &&
+                !inCheck &&
+                bestScore > -Eval.MateBound &&
+                depth <= LmpMaxDepth &&
+                i >= quietStart + LmpBudget(depth, improving))
+                break;
 
             if (futile &&
                 bestScore > -SearchState.Infinity &&
@@ -239,6 +258,7 @@ internal static class Pruning
                 {
                     int rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
                     if (isPv) rr--;
+                    rr += improving ? -1 : 1;
                     if (i >= quietStart) rr -= quietScores[i] / 8192;
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);

@@ -21,7 +21,7 @@ internal static class Pruning
         return t;
     }
 
-    public static int AlphaBeta(SearchState state, Position position, int depth, int alpha, int beta, int ply, bool allowNullMove = true)
+    public static int AlphaBeta(SearchState state, Position position, int depth, int alpha, int beta, int ply, bool allowNullMove = true, bool cutNode = false)
     {
         if (state.StopRequested) return 0;
         if ((state.NodeCount & 8191) == 0 && state.ReachedSearchLimit())
@@ -67,7 +67,10 @@ internal static class Pruning
 
         // internal iterative reduction
         if (ply > 0 && depth >= 4 && !inCheck && (!ttHit || ttEntry.Move == 0))
+        {
             depth--;
+            if (cutNode) depth--;
+        }
 
         if (depth <= 0)
             return Quiescence.Search(state, position, alpha, beta, ply);
@@ -111,7 +114,7 @@ internal static class Pruning
             int reduction = 3 + depth / 6;
             state.PlayedPieceTo[ply] = -1;
             position.MakeNullMove();
-            int nullScore = -AlphaBeta(state, position, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false);
+            int nullScore = -AlphaBeta(state, position, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false, !cutNode);
             position.UnmakeNullMove();
 
             if (state.StopRequested) return 0;
@@ -247,7 +250,7 @@ internal static class Pruning
             int score;
             if (i == 0)
             {
-                score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
+                score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
             }
             else
             {
@@ -263,14 +266,15 @@ internal static class Pruning
                     int rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
                     if (isPv) rr--;
                     rr += improving ? -1 : 1;
+                    if (cutNode) rr++;
                     if (i >= quietStart) rr -= quietScores[i] / 8192;
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);
                 }
 
-                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1);
+                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode);
                 if (score > alpha && (reduction > 0 || score < beta))
-                    score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1);
+                    score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
             }
 
             position.Undo(sideToMove, move);

@@ -13,6 +13,8 @@ internal static class Pruning
     private const int SingularMinDepth = 6;
     private const int SingularMargin = 2;
     private const int SingularTtSlack = 3;
+    private const int DoubleExtensionMargin = 60;
+    private const int DoubleExtensionLimit = 6;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -278,6 +280,15 @@ internal static class Pruning
                 {
                     state.SingularExtensions++;
                     extension = 1;
+
+                    // double extension
+                    if (!isPv &&
+                        singularScore < singularBeta - DoubleExtensionMargin &&
+                        state.DoubleExtensionPath < DoubleExtensionLimit)
+                    {
+                        state.SingularDoubleExtensions++;
+                        extension = 2;
+                    }
                 }
                 else if (singularBeta >= beta)
                 {
@@ -303,7 +314,9 @@ internal static class Pruning
             int score;
             if (i == 0)
             {
+                if (extension == 2) state.DoubleExtensionPath++;
                 score = -AlphaBeta(state, position, depth - 1 + extension, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
+                if (extension == 2) state.DoubleExtensionPath--;
             }
             else
             {

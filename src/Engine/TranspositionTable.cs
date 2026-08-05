@@ -95,7 +95,8 @@ public sealed class TranspositionTable
         int oldDepth = (byte)(oldData >> 32);
         byte oldGen = (byte)((oldData >> 42) & 0x3F);
 
-        if (oldFlag != TtFlag.None && oldGen == generation && oldDepth > depth && flag != TtFlag.Exact)
+        int effectiveDepth = depth + (flag == TtFlag.Exact ? 2 : 0);
+        if (oldFlag != TtFlag.None && oldGen == generation && oldDepth > effectiveDepth)
             return;
 
         ushort finalMove = move != 0 ? move : samePosition ? (ushort)oldData : (ushort)0;

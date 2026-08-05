@@ -91,7 +91,6 @@ public static class Nnue
 
         var src = Level(st, cur);
         var dst = Level(st, cur + 1);
-        src.CopyTo(dst);
         int n = st.L1;
         var w = ftW.AsSpan();
         int from = (int)m.From, to = (int)m.To;
@@ -99,56 +98,57 @@ public static class Nnue
         for (int p = 0; p < 2; p++)
         {
             var half = dst.Slice(p * n, n);
+            var srcHalf = src.Slice(p * n, n);
             switch (m.Flags)
             {
                 case MoveFlags.Quiet:
                 case MoveFlags.DoublePush:
                 {
                     int pc = (int)pos.At(m.From);
-                    AddSub(half, w.Slice(RowBase(p, pc, to), n), w.Slice(RowBase(p, pc, from), n));
+                    AddSubFrom(half, srcHalf, w.Slice(RowBase(p, pc, to), n), w.Slice(RowBase(p, pc, from), n));
                     break;
                 }
                 case MoveFlags.OO:
                 {
                     int k = (int)Types.MakePiece(us, PieceType.King), r = (int)Types.MakePiece(us, PieceType.Rook);
                     int e = us == Color.White ? (int)Square.e1 : (int)Square.e8;
-                    AddSub(half, w.Slice(RowBase(p, k, e + 2), n), w.Slice(RowBase(p, k, e), n));       // e->g
-                    AddSub(half, w.Slice(RowBase(p, r, e + 1), n), w.Slice(RowBase(p, r, e + 3), n));   // h->f
+                    AddSubFrom(half, srcHalf, w.Slice(RowBase(p, k, e + 2), n), w.Slice(RowBase(p, k, e), n)); // e->g
+                    AddSub(half, w.Slice(RowBase(p, r, e + 1), n), w.Slice(RowBase(p, r, e + 3), n));          // h->f
                     break;
                 }
                 case MoveFlags.OOO:
                 {
                     int k = (int)Types.MakePiece(us, PieceType.King), r = (int)Types.MakePiece(us, PieceType.Rook);
                     int e = us == Color.White ? (int)Square.e1 : (int)Square.e8;
-                    AddSub(half, w.Slice(RowBase(p, k, e - 2), n), w.Slice(RowBase(p, k, e), n));       // e->c
-                    AddSub(half, w.Slice(RowBase(p, r, e - 1), n), w.Slice(RowBase(p, r, e - 4), n));   // a->d
+                    AddSubFrom(half, srcHalf, w.Slice(RowBase(p, k, e - 2), n), w.Slice(RowBase(p, k, e), n)); // e->c
+                    AddSub(half, w.Slice(RowBase(p, r, e - 1), n), w.Slice(RowBase(p, r, e - 4), n));          // a->d
                     break;
                 }
                 case MoveFlags.EnPassant:
                 {
                     int pc = (int)pos.At(m.From);
                     int capSq = to + (int)Types.RelativeDir(us, Direction.South);
-                    AddSub(half, w.Slice(RowBase(p, pc, to), n), w.Slice(RowBase(p, pc, from), n));
+                    AddSubFrom(half, srcHalf, w.Slice(RowBase(p, pc, to), n), w.Slice(RowBase(p, pc, from), n));
                     Sub(half, w.Slice(RowBase(p, (int)Types.MakePiece(us.Flip(), PieceType.Pawn), capSq), n));
                     break;
                 }
                 case MoveFlags.PrKnight: case MoveFlags.PrBishop: case MoveFlags.PrRook: case MoveFlags.PrQueen:
                 {
                     int promo = (int)Types.MakePiece(us, (PieceType)(((int)m.Flags & 3) + 1));
-                    AddSub(half, w.Slice(RowBase(p, promo, to), n), w.Slice(RowBase(p, (int)Types.MakePiece(us, PieceType.Pawn), from), n));
+                    AddSubFrom(half, srcHalf, w.Slice(RowBase(p, promo, to), n), w.Slice(RowBase(p, (int)Types.MakePiece(us, PieceType.Pawn), from), n));
                     break;
                 }
                 case MoveFlags.PcKnight: case MoveFlags.PcBishop: case MoveFlags.PcRook: case MoveFlags.PcQueen:
                 {
                     int promo = (int)Types.MakePiece(us, (PieceType)(((int)m.Flags & 3) + 1));
-                    AddSub(half, w.Slice(RowBase(p, promo, to), n), w.Slice(RowBase(p, (int)Types.MakePiece(us, PieceType.Pawn), from), n));
+                    AddSubFrom(half, srcHalf, w.Slice(RowBase(p, promo, to), n), w.Slice(RowBase(p, (int)Types.MakePiece(us, PieceType.Pawn), from), n));
                     Sub(half, w.Slice(RowBase(p, (int)pos.At(m.To), to), n));
                     break;
                 }
                 case MoveFlags.Capture:
                 {
                     int pc = (int)pos.At(m.From);
-                    AddSub(half, w.Slice(RowBase(p, pc, to), n), w.Slice(RowBase(p, pc, from), n));
+                    AddSubFrom(half, srcHalf, w.Slice(RowBase(p, pc, to), n), w.Slice(RowBase(p, pc, from), n));
                     Sub(half, w.Slice(RowBase(p, (int)pos.At(m.To), to), n));
                     break;
                 }
@@ -283,5 +283,20 @@ public static class Nnue
         for (; j + v <= len; j += v)
             Vector.StoreUnsafe(Vector.LoadUnsafe(ref ra, (nuint)j) + Vector.LoadUnsafe(ref r1, (nuint)j) - Vector.LoadUnsafe(ref r2, (nuint)j), ref ra, (nuint)j);
         for (; j < len; j++) acc[j] += (short)(add[j] - sub[j]);
+    }
+
+    private static void AddSubFrom(Span<short> dst, ReadOnlySpan<short> src, ReadOnlySpan<short> add, ReadOnlySpan<short> sub)
+    {
+        ref short rd = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(dst);
+        ref short rs = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(src);
+        ref short r1 = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(add);
+        ref short r2 = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(sub);
+        int v = Vector<short>.Count, len = dst.Length, j = 0;
+        for (; j + v <= len; j += v)
+            Vector.StoreUnsafe(Vector.LoadUnsafe(ref rs, (nuint)j) + 
+            Vector.LoadUnsafe(ref r1, (nuint)j) - 
+            Vector.LoadUnsafe(ref r2, (nuint)j), ref rd, (nuint)j);
+        for (; j < len; j++) 
+            dst[j] = (short)(src[j] + add[j] - sub[j]);
     }
 }

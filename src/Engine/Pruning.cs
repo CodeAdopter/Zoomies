@@ -285,6 +285,12 @@ internal static class Pruning
                     state.SingularMulticuts++;
                     return singularBeta;
                 }
+                else if (ttScore >= beta)
+                {
+                    // negative extension
+                    state.SingularNegativeExtensions++;
+                    extension = -1;
+                }
             }
 
             if (isQuiet && triedQuietCount < triedQuiets.Length)

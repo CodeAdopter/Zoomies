@@ -46,6 +46,7 @@ public sealed class Search
     public long LastSingularAttempts { get; private set; }
     public long LastSingularExtensions { get; private set; }
     public long LastSingularMulticuts { get; private set; }
+    public long LastSingularNegativeExtensions { get; private set; }
 
     public void Stop() => state.StopRequested = true;
 
@@ -156,6 +157,7 @@ public sealed class Search
         LastSingularAttempts = state.SingularAttempts;
         LastSingularExtensions = state.SingularExtensions;
         LastSingularMulticuts = state.SingularMulticuts;
+        LastSingularNegativeExtensions = state.SingularNegativeExtensions;
         return state.PrincipalVariationMove;
     }
 

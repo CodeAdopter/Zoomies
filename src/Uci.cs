@@ -326,6 +326,7 @@ public static class Uci
         long totalSingularAttempts = 0;
         long totalSingularExtensions = 0;
         long totalSingularMulticuts = 0;
+        long totalSingularNegativeExtensions = 0;
 
         foreach (string fen in positions)
         {
@@ -339,6 +340,7 @@ public static class Uci
             totalSingularAttempts += search.LastSingularAttempts;
             totalSingularExtensions += search.LastSingularExtensions;
             totalSingularMulticuts += search.LastSingularMulticuts;
+            totalSingularNegativeExtensions += search.LastSingularNegativeExtensions;
 
             long nodesPerSecond = search.LastElapsedMilliseconds > 0
                 ? search.LastNodeCount * 1000 / search.LastElapsedMilliseconds
@@ -377,6 +379,7 @@ public static class Uci
         Console.WriteLine(
             $"singular: {totalSingularAttempts:N0} tries    " +
             $"{totalSingularExtensions:N0} ext ({extensionPercentage:F1}%)  " +
-            $"{totalSingularMulticuts:N0} multicut");
+            $"{totalSingularMulticuts:N0} multicut  " +
+            $"{totalSingularNegativeExtensions:N0} negext");
     }
 }

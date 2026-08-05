@@ -23,6 +23,7 @@ public sealed class SearchState
     public long SingularAttempts;
     public long SingularExtensions;
     public long SingularMulticuts;
+    public long SingularNegativeExtensions;
     public const int PieceToCount = 14 * 64;
     public const int CorrectionHistorySize = 16384;
     public const int NoStaticEval = int.MinValue / 2;
@@ -48,6 +49,8 @@ public sealed class SearchState
         SingularAttempts = 0;
         SingularExtensions = 0;
         SingularMulticuts = 0;
+        SingularNegativeExtensions = 0;
+        
         SearchUntilStopped = limits.SearchUntilStopped;
         Clock.Restart();
         TimeLimitMilliseconds = limits.MoveTimeMilliseconds > 0

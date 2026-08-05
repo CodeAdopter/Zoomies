@@ -14,6 +14,8 @@ public sealed class DatagenOptions
     public bool AdaptiveNodes = true;
     public int RecordEvery = 1;
     public string Eval = "";
+    public int GenDepth;
+    public int LabelDepth;
 
     public static DatagenOptions Parse(string[] args)
     {
@@ -33,10 +35,14 @@ public sealed class DatagenOptions
                 case "--tt-mb": _ = int.TryParse(args[i + 1], out o.TtMb); break;
                 case "--record-every": _ = int.TryParse(args[i + 1], out o.RecordEvery); break;
                 case "--eval": o.Eval = args[i + 1]; break;
+                case "--gen-depth": _ = int.TryParse(args[i + 1], out o.GenDepth); break;
+                case "--label-depth": _ = int.TryParse(args[i + 1], out o.LabelDepth); break;
             }
         }
         o.Threads = Math.Clamp(o.Threads, 1, 512);
         o.NodesPerMove = Math.Max(16, o.NodesPerMove);
+        o.GenDepth = Math.Clamp(o.GenDepth, 0, 64);
+        o.LabelDepth = Math.Clamp(o.LabelDepth, 0, 64);
         o.BookPlies = Math.Clamp(o.BookPlies, 0, 40);
         o.TtMb = Math.Clamp(o.TtMb, 1, 1024);
         o.RecordEvery = Math.Clamp(o.RecordEvery, 1, 16);

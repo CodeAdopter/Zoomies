@@ -39,7 +39,9 @@ public static class Datagen
     {
         if (opt.Eval.Length > 0) Nnue.Load(opt.Eval);
         int seed = opt.Seed != 0 ? opt.Seed : Environment.TickCount;
-        Console.WriteLine($"datagen: threads {opt.Threads}  nodes/move {opt.NodesPerMove}  book plies {opt.BookPlies} seed {seed}");
+        string playSpec = opt.GenDepth > 0 ? $"depth {opt.GenDepth}" : $"nodes/move {opt.NodesPerMove}";
+        string labelSpec = opt.LabelDepth > 0 ? $"depth {opt.LabelDepth}" : "move-search score";
+        Console.WriteLine($"datagen: threads {opt.Threads}  play {playSpec}  label {labelSpec}  book plies {opt.BookPlies} seed {seed}");
         Console.WriteLine($"datagen: eval {(Nnue.Loaded ? $"nnue ({Path.GetFileName(Nnue.LoadedPath)}, L1={Nnue.L1})" : "psqt")}  out {opt.OutPath}");
         Console.WriteLine($"datagen: stopping at {(opt.MaxGames > 0 ? $"{opt.MaxGames} games" : opt.MaxPositions > 0 ? $"{opt.MaxPositions} positions" : "Ctrl+C")}");
 
@@ -154,9 +156,10 @@ public static class Datagen
             if (pos.IsFiftyMoveRule() || pos.IsRepetition() || InsufficientMaterial(pos) || pos.Ply >= MaxGamePlies)
                 return 0.5;
 
-            bool reduced = opt.AdaptiveNodes && consecWin >= 1 && prevAbs >= WinAdjScore + 200;
+            bool depthMode = opt.GenDepth > 0;
+            bool reduced = !depthMode && opt.AdaptiveNodes && consecWin >= 1 && prevAbs >= WinAdjScore + 200;
             long budget = reduced ? Math.Max(256, opt.NodesPerMove * 2 / 5) : opt.NodesPerMove;
-            Move best = search.FindBestMove(pos, SearchLimits.Nodes(budget));
+            Move best = search.FindBestMove(pos, depthMode ? SearchLimits.Depth(opt.GenDepth) : SearchLimits.Nodes(budget));
             if (bench != null)
             {
                 bench.Nodes += search.LastNodeCount;
@@ -175,7 +178,17 @@ public static class Datagen
                 && (best.Flags & MoveFlags.Promotions) == 0
                 && Math.Abs(whiteScore) < MaxRecordScore)
             {
-                if (recIdx % opt.RecordEvery == recPhase) record(pos, whiteScore);
+                if (recIdx % opt.RecordEvery == recPhase)
+                {
+                    int labelWhite = whiteScore;
+                    if (opt.LabelDepth > 0)
+                    {
+                        search.FindBestMove(pos, SearchLimits.Depth(opt.LabelDepth));
+                        int ls = search.LastScore;
+                        labelWhite = pos.Turn == Color.White ? ls : -ls;
+                    }
+                    record(pos, labelWhite);
+                }
                 recIdx++;
             }
 

@@ -452,26 +452,46 @@ internal static class Pruning
     private const int CorrectionMax = 32 * CorrectionGrain;
 
     // adjust the static eval using the average search correction
-    // for positions with the same pawn structure
+    // for positions sharing the same pawn structure and non pawn piece placement.
     public static int CorrectEval(SearchState state, Position position, int rawEval)
     {
-        int correction = state.PawnCorrectionHistory[CorrectionIndex(position)];
-        return Math.Clamp(rawEval + correction / CorrectionGrain, -Eval.MateBound + 1, Eval.MateBound - 1);
+        int stm = (int)position.Turn * SearchState.CorrectionHistorySize;
+        int correction =
+            2 * state.PawnCorrectionHistory[stm + PawnIndex(position)]
+              + state.WhiteNonPawnCorrectionHistory[stm + NonPawnIndex(position, Color.White)]
+              + state.BlackNonPawnCorrectionHistory[stm + NonPawnIndex(position, Color.Black)];
+        return Math.Clamp(rawEval + correction / (4 * CorrectionGrain), -Eval.MateBound + 1, Eval.MateBound - 1);
     }
 
     private static void UpdateCorrectionHistory(SearchState state, Position position, int depth, int diff)
     {
+        int stm = (int)position.Turn * SearchState.CorrectionHistorySize;
+        ApplyCorrection(ref state.PawnCorrectionHistory[stm + PawnIndex(position)], depth, diff);
+        ApplyCorrection(ref state.WhiteNonPawnCorrectionHistory[stm + NonPawnIndex(position, Color.White)], depth, diff);
+        ApplyCorrection(ref state.BlackNonPawnCorrectionHistory[stm + NonPawnIndex(position, Color.Black)], depth, diff);
+    }
+
+    private static void ApplyCorrection(ref int entry, int depth, int diff)
+    {
         int weight = Math.Min(depth + 1, 16);
-        ref int entry = ref state.PawnCorrectionHistory[CorrectionIndex(position)];
         long value = ((long)entry * (CorrectionWeight - weight) + (long)diff * CorrectionGrain * weight) / CorrectionWeight;
         entry = (int)Math.Clamp(value, -CorrectionMax, CorrectionMax);
     }
 
-    private static int CorrectionIndex(Position position) =>
-        ((int)position.Turn * SearchState.CorrectionHistorySize) +
+    private static int PawnIndex(Position position) =>
         (int)(MixKey(MixKey(position.BitboardOf(Color.White, PieceType.Pawn))
                    ^ position.BitboardOf(Color.Black, PieceType.Pawn))
               & (SearchState.CorrectionHistorySize - 1));
+
+    private static int NonPawnIndex(Position position, Color side)
+    {
+        ulong h = MixKey(position.BitboardOf(side, PieceType.Knight));
+        h = MixKey(h ^ position.BitboardOf(side, PieceType.Bishop));
+        h = MixKey(h ^ position.BitboardOf(side, PieceType.Rook));
+        h = MixKey(h ^ position.BitboardOf(side, PieceType.Queen));
+        h = MixKey(h ^ position.BitboardOf(side, PieceType.King));
+        return (int)(h & (SearchState.CorrectionHistorySize - 1));
+    }
 
     private static ulong MixKey(ulong x)
     {

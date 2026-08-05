@@ -33,6 +33,8 @@ public sealed class SearchState
     public readonly int[] ContinuationHistory1 = new int[PieceToCount * PieceToCount];
     public readonly int[] ContinuationHistory2 = new int[PieceToCount * PieceToCount];
     public readonly int[] PawnCorrectionHistory = new int[2 * CorrectionHistorySize];
+    public readonly int[] WhiteNonPawnCorrectionHistory = new int[2 * CorrectionHistorySize];
+    public readonly int[] BlackNonPawnCorrectionHistory = new int[2 * CorrectionHistorySize];
     public readonly int[] PlayedPieceTo = new int[MaximumPly]; // -1 = none (root/null move)
     public readonly int[] StaticEvalStack = new int[MaximumPly];
 
@@ -74,6 +76,8 @@ public sealed class SearchState
         Array.Clear(ContinuationHistory1, 0, ContinuationHistory1.Length);
         Array.Clear(ContinuationHistory2, 0, ContinuationHistory2.Length);
         Array.Clear(PawnCorrectionHistory, 0, PawnCorrectionHistory.Length);
+        Array.Clear(WhiteNonPawnCorrectionHistory, 0, WhiteNonPawnCorrectionHistory.Length);
+        Array.Clear(BlackNonPawnCorrectionHistory, 0, BlackNonPawnCorrectionHistory.Length);
     }
 
     public bool ReachedSearchLimit()

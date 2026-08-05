@@ -6,3 +6,5 @@ Implementations shelved due to failing SPRT
 4. Singular Extensions
 5. Qsearch TT probe
 6. Qsearch check evasions
+7. Capture history
+8. Probability Cut

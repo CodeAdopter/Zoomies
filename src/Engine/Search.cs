@@ -43,6 +43,9 @@ public sealed class Search
     public long LastElapsedMilliseconds { get; private set; }
     public int LastScore { get; private set; }
     public int LastDepth { get; private set; }
+    public long LastSingularAttempts { get; private set; }
+    public long LastSingularExtensions { get; private set; }
+    public long LastSingularMulticuts { get; private set; }
 
     public void Stop() => state.StopRequested = true;
 
@@ -78,6 +81,9 @@ public sealed class Search
 
         for (int depth = 1; depth <= maxDepth; depth++)
         {
+            state.RootDepth = depth;
+
+            
             // aspiration windows: start narrow around the previous score,
             // widen exponentially on fail until the score fits
             int alpha = -SearchState.Infinity;
@@ -147,6 +153,9 @@ public sealed class Search
         LastElapsedMilliseconds = state.Clock.ElapsedMilliseconds;
         LastScore = lastScore;
         LastDepth = completedDepth;
+        LastSingularAttempts = state.SingularAttempts;
+        LastSingularExtensions = state.SingularExtensions;
+        LastSingularMulticuts = state.SingularMulticuts;
         return state.PrincipalVariationMove;
     }
 

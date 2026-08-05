@@ -10,6 +10,10 @@ internal static class Pruning
     private static int LmpBudget(int depth, bool improving) =>
         Math.Max(LmpThreshold[depth] + (improving ? 2 : -1) - depth, 0);
 
+    private const int SingularMinDepth = 6;
+    private const int SingularMargin = 2;
+    private const int SingularTtSlack = 3;
+
     private static readonly int[] LmrTable = BuildLmrTable();
 
     private static int[] BuildLmrTable()
@@ -21,7 +25,9 @@ internal static class Pruning
         return t;
     }
 
-    public static int AlphaBeta(SearchState state, Position position, int depth, int alpha, int beta, int ply, bool allowNullMove = true, bool cutNode = false)
+    public static int AlphaBeta(SearchState state, Position position, int depth, 
+    int alpha, int beta, int ply, 
+    bool allowNullMove = true, bool cutNode = false, Move excluded = default)
     {
         if (state.StopRequested) return 0;
         if ((state.NodeCount & 8191) == 0 && state.ReachedSearchLimit())
@@ -44,10 +50,12 @@ internal static class Pruning
         if (ply >= SearchState.MaximumPly - 1)
             return Eval.Evaluate(position);
 
+        bool excludedSearch = excluded.EncodedValue != 0;
+
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
         int ttScore = ttHit ? TranspositionTable.ScoreFromTt(ttEntry.Score, ply) : 0;
-        if (ttHit && ply > 0 && ttEntry.Depth >= depth)
+        if (ttHit && ply > 0 && !excludedSearch && ttEntry.Depth >= depth)
         {
             switch (ttEntry.Flag)
             {
@@ -87,6 +95,7 @@ internal static class Pruning
         // Prune with the TT score when it provides a tighter bound than the static eval.
         int pruneEval = staticEval;
         if (ttHit &&
+            !excludedSearch &&
             !inCheck &&
             Math.Abs(ttScore) < Eval.MateBound &&
             (ttEntry.Flag == TtFlag.Exact ||
@@ -104,6 +113,7 @@ internal static class Pruning
 
         // null move pruning
         if (allowNullMove &&
+            !excludedSearch &&
             ply > 0 &&
             depth >= 3 &&
             beta < Eval.MateBound &&
@@ -207,6 +217,7 @@ internal static class Pruning
         for (int i = 0; i < moveCount; i++)
         {
             Move move = moves[i];
+            if (excludedSearch && move == excluded) continue;
             bool isQuiet = !move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0;
 
             // late move pruning: after enough quiet moves have been searched at low depth
@@ -240,6 +251,42 @@ internal static class Pruning
                 !See.Ge(position, move, -100 * depth))
                 continue;
 
+            // singular extension: 
+            // when only the TT move succeeds extend it by 1 ply
+            int extension = 0;
+            if (i == 0 &&
+                !excludedSearch &&
+                ttHit &&
+                ply > 0 &&
+                move.EncodedValue == ttEntry.Move &&
+                depth >= SingularMinDepth &&
+                ply < state.RootDepth * 2 &&
+                ttEntry.Depth >= depth - SingularTtSlack &&
+                ttEntry.Flag != TtFlag.Upper &&
+                Math.Abs(ttScore) < Eval.MateBound)
+            {
+                state.SingularAttempts++;
+                int singularBeta = ttScore - SingularMargin * depth;
+
+                // verification search: exclude the TT move and see if 
+                // another move can still reach singularBeta
+                int singularScore = AlphaBeta(state, position, (depth - 1) / 2, singularBeta - 1, singularBeta, ply, false, cutNode, move);
+
+                if (state.StopRequested) return 0;
+
+                if (singularScore < singularBeta)
+                {
+                    state.SingularExtensions++;
+                    extension = 1;
+                }
+                else if (singularBeta >= beta)
+                {
+                    // multicut
+                    state.SingularMulticuts++;
+                    return singularBeta;
+                }
+            }
+
             if (isQuiet && triedQuietCount < triedQuiets.Length)
                 triedQuiets[triedQuietCount++] = move;
 
@@ -250,7 +297,7 @@ internal static class Pruning
             int score;
             if (i == 0)
             {
-                score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
+                score = -AlphaBeta(state, position, depth - 1 + extension, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
             }
             else
             {
@@ -317,18 +364,20 @@ internal static class Pruning
         // update the correction table with the difference between the search score
         // and static eval when the result is suitable for learning
         if (!inCheck &&
+            !excludedSearch &&
             Math.Abs(bestScore) < Eval.MateBound &&
             !bestMove.IsCapture && (bestMove.Flags & MoveFlags.Promotions) == 0 &&
             !(storeFlag == TtFlag.Lower && bestScore <= staticEval) &&
             !(storeFlag == TtFlag.Upper && bestScore >= staticEval))
             UpdateCorrectionHistory(state, position, depth, bestScore - staticEval);
 
-        state.Tt.Store(
-            key,
-            bestMove.EncodedValue,
-            TranspositionTable.ScoreToTt(bestScore, ply),
-            depth,
-            storeFlag);
+        if (!excludedSearch)
+            state.Tt.Store(
+                key,
+                bestMove.EncodedValue,
+                TranspositionTable.ScoreToTt(bestScore, ply),
+                depth,
+                storeFlag);
 
         return bestScore;
     }

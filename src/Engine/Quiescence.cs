@@ -18,9 +18,9 @@ internal static class Quiescence
 
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
+        int ttScore = ttHit ? TranspositionTable.ScoreFromTt(ttEntry.Score, ply) : 0;
         if (ttHit && beta - alpha <= 1)
         {
-            int ttScore = TranspositionTable.ScoreFromTt(ttEntry.Score, ply);
             switch (ttEntry.Flag)
             {
                 case TtFlag.Exact:
@@ -42,6 +42,14 @@ internal static class Quiescence
         {
             state.EvaluationCount++;
             standingPatScore = Pruning.CorrectEval(state, position, Eval.Evaluate(position));
+
+            if (ttHit &&
+                Math.Abs(ttScore) < Eval.MateBound &&
+                (ttEntry.Flag == TtFlag.Exact ||
+                (ttEntry.Flag == TtFlag.Lower && ttScore > standingPatScore) ||
+                (ttEntry.Flag == TtFlag.Upper && ttScore < standingPatScore)))
+                    standingPatScore = ttScore;
+
             bestScore = standingPatScore;
             if (standingPatScore >= beta)
             {

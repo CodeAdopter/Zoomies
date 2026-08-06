@@ -28,12 +28,14 @@ public sealed class SearchState
     public int DoubleExtensionPath;
     public const int PieceToCount = 14 * 64;
     public const int CorrectionHistorySize = 16384;
+    public const int CapturedTypes = 6;
     public const int NoStaticEval = int.MinValue / 2;
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
     public readonly int[] ContinuationHistory1 = new int[PieceToCount * PieceToCount];
     public readonly int[] ContinuationHistory2 = new int[PieceToCount * PieceToCount];
+    public readonly int[] CaptureHistory = new int[PieceToCount * CapturedTypes];
     public readonly int[] PawnCorrectionHistory = new int[2 * CorrectionHistorySize];
     public readonly int[] WhiteNonPawnCorrectionHistory = new int[2 * CorrectionHistorySize];
     public readonly int[] BlackNonPawnCorrectionHistory = new int[2 * CorrectionHistorySize];
@@ -79,6 +81,7 @@ public sealed class SearchState
         Array.Clear(QuietHistory, 0, QuietHistory.Length);
         Array.Clear(ContinuationHistory1, 0, ContinuationHistory1.Length);
         Array.Clear(ContinuationHistory2, 0, ContinuationHistory2.Length);
+        Array.Clear(CaptureHistory, 0, CaptureHistory.Length);
         Array.Clear(PawnCorrectionHistory, 0, PawnCorrectionHistory.Length);
         Array.Clear(WhiteNonPawnCorrectionHistory, 0, WhiteNonPawnCorrectionHistory.Length);
         Array.Clear(BlackNonPawnCorrectionHistory, 0, BlackNonPawnCorrectionHistory.Length);

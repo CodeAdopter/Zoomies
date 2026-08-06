@@ -215,6 +215,8 @@ internal static class Pruning
 
         Span<Move> triedQuiets = stackalloc Move[64];
         int triedQuietCount = 0;
+        Span<Move> triedCaptures = stackalloc Move[64];
+        int triedCaptureCount = 0;
 
         for (int i = 0; i < moveCount; i++)
         {
@@ -306,6 +308,13 @@ internal static class Pruning
 
             if (isQuiet && triedQuietCount < triedQuiets.Length)
                 triedQuiets[triedQuietCount++] = move;
+            else if (move.IsCapture && triedCaptureCount < triedCaptures.Length)
+                triedCaptures[triedCaptureCount++] = move;
+
+            // read capture history before the move is played (index needs the pre-move board)
+            int captureHistoryScore = move.IsCapture
+                ? state.CaptureHistory[Order.CaptureHistoryIndex(position, move)]
+                : 0;
 
             state.PlayedPieceTo[ply] = ((int)position.At(move.From) << 6) | (int)move.To;
             position.Play(sideToMove, move);
@@ -325,7 +334,7 @@ internal static class Pruning
                 if (depth >= 3 &&
                     i >= (isPv ? 2 : 1) &&
                     !inCheck &&
-                    isQuiet &&
+                    (isQuiet || move.IsCapture) &&
                     move != state.KillerMoves[ply, 0] &&
                     move != state.KillerMoves[ply, 1])
                 {
@@ -333,7 +342,14 @@ internal static class Pruning
                     if (isPv) rr--;
                     rr += improving ? -1 : 1;
                     if (cutNode) rr++;
-                    if (i >= quietStart) rr -= quietScores[i] / 8192;
+                    if (isQuiet)
+                    {
+                        if (i >= quietStart) rr -= quietScores[i] / 8192;
+                    }
+                    else
+                    {
+                        rr -= captureHistoryScore / 8192;
+                    }
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);
                 }
@@ -373,6 +389,7 @@ internal static class Pruning
                     state, position, sideToMove, default,
                     triedQuiets[..triedQuietCount], depth, previous1, previous2);
             }
+            UpdateCaptureHistories(state, position, move, triedCaptures[..triedCaptureCount], depth);
             break;
         }
 
@@ -441,6 +458,17 @@ internal static class Pruning
         foreach (Move tried in triedQuiets)
             if (tried != cutoffMove)
                 UpdateQuietHistory(state, position, side, tried, malus, previous1, previous2);
+    }
+
+    private static void UpdateCaptureHistories(
+        SearchState state, Position position, Move cutoffMove, ReadOnlySpan<Move> triedCaptures, int depth)
+    {
+        int bonus = HistoryBonus(depth);
+        if (cutoffMove.IsCapture)
+            Gravity(ref state.CaptureHistory[Order.CaptureHistoryIndex(position, cutoffMove)], bonus);
+        foreach (Move tried in triedCaptures)
+            if (tried != cutoffMove)
+                Gravity(ref state.CaptureHistory[Order.CaptureHistoryIndex(position, tried)], -bonus);
     }
 
     private static int HistoryBonus(int depth) =>

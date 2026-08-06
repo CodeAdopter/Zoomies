@@ -50,4 +50,13 @@ internal static class Order
         piece == Piece.NoPiece
             ? Eval.PieceValue[(int)PieceType.Pawn]
             : Eval.PieceValue[(int)Types.TypeOf(piece)];
+
+    public static int CaptureHistoryIndex(Position position, Move move)
+    {
+        int piece = (int)position.At(move.From);
+        int captured = move.Flags == MoveFlags.EnPassant
+            ? (int)PieceType.Pawn
+            : (int)Types.TypeOf(position.At(move.To));
+        return (((piece << 6) | (int)move.To) * SearchState.CapturedTypes) + captured;
+    }
 }

@@ -307,6 +307,7 @@ internal static class Pruning
             if (isQuiet && triedQuietCount < triedQuiets.Length)
                 triedQuiets[triedQuietCount++] = move;
 
+            long rootNodesBefore = ply == 0 ? state.NodeCount : 0;
             state.PlayedPieceTo[ply] = ((int)position.At(move.From) << 6) | (int)move.To;
             position.Play(sideToMove, move);
 
@@ -350,7 +351,11 @@ internal static class Pruning
             {
                 bestScore = score;
                 bestMove = move;
-                if (ply == 0) state.PrincipalVariationMove = move;
+                if (ply == 0)
+                {
+                    state.PrincipalVariationMove = move;
+                    state.BestMoveEffortNodes = state.NodeCount - rootNodesBefore;
+                }
             }
 
             if (score > alpha) alpha = score;

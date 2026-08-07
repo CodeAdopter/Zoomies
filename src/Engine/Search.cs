@@ -25,6 +25,16 @@ public sealed class Search
     private const double StabilityDecay = 0.3;
     private static readonly int[] StabilityScale = BuildStabilityScale();
 
+    private const int EffortMinDepth = 8;
+    private const int EffortHighThreshold = 96;
+    private const int EffortHighScale = 65;
+    private const int EffortMediumThreshold = 85;
+    private const int EffortMediumScale = 85;
+    private const int EffortLowThreshold = 33;
+    private const int EffortLowScale = 135;
+    private const int SoftScaleFloor = 40;
+    private const int SoftScaleCeiling = 300;
+
     private static int[] BuildStabilityScale()
     {
         var table = new int[8];
@@ -84,8 +94,9 @@ public sealed class Search
         for (int depth = 1; depth <= maxDepth; depth++)
         {
             state.RootDepth = depth;
+            long iterationStartNodes = state.NodeCount;
+            state.BestMoveEffortNodes = 0;
 
-            
             // aspiration windows: start narrow around the previous score,
             // widen exponentially on fail until the score fits
             int alpha = -SearchState.Infinity;
@@ -117,6 +128,9 @@ public sealed class Search
             lastScore = score;
             completedDepth = depth;
 
+            long iterationNodes = Math.Max(1, state.NodeCount - iterationStartNodes);
+            int effortPercent = (int)(100 * state.BestMoveEffortNodes / iterationNodes);
+
             if (!SuppressOutput)
             {
                 long elapsedMilliseconds = state.Clock.ElapsedMilliseconds;
@@ -130,7 +144,8 @@ public sealed class Search
                         : $"cp {score}";
                 Console.WriteLine(
                     $"info depth {depth} score {scoreText} nodes {state.NodeCount} " +
-                    $"nps {nodesPerSecond} time {elapsedMilliseconds} pv {state.PrincipalVariationMove}");
+                    $"nps {nodesPerSecond} time {elapsedMilliseconds} " +
+                    $"effort {effortPercent} pv {state.PrincipalVariationMove}");
             }
 
             if (state.ReachedSearchLimit()) break;
@@ -141,8 +156,18 @@ public sealed class Search
                 ? Math.Min(stability + 1, StabilityScale.Length - 1)
                 : 0;
             previousBest = state.PrincipalVariationMove;
+
+            int effortScale = 100;
+            if (depth >= EffortMinDepth)
+                effortScale = effortPercent >= EffortHighThreshold ? EffortHighScale
+                    : effortPercent >= EffortMediumThreshold ? EffortMediumScale
+                    : effortPercent <= EffortLowThreshold ? EffortLowScale
+                    : 100;
+            long combinedScale = Math.Clamp(
+                StabilityScale[stability] * effortScale / 100,
+                SoftScaleFloor, SoftScaleCeiling);
             long softLimit = state.HasSoftLimit
-                ? state.SoftTimeLimitMilliseconds * StabilityScale[stability] / 100
+                ? state.SoftTimeLimitMilliseconds * combinedScale / 100
                 : state.SoftTimeLimitMilliseconds;
             if (!state.SearchUntilStopped &&
                 state.Clock.ElapsedMilliseconds >= softLimit) break;

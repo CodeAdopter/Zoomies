@@ -48,6 +48,19 @@ if (args.Length > 0)
         case "nnueverify":
             Environment.Exit(Zoomies.Training.NnueVerify4.Cli(args));
             return;
+
+        case "eval" when args.Length >= 3:
+        {
+            Nnue.Load(args[1]);
+            var pos = new Position();
+            foreach (var fen in System.IO.File.ReadLines(args[2]))
+            {
+                if (string.IsNullOrWhiteSpace(fen)) continue;
+                Position.Set(fen, pos);
+                Console.WriteLine(Nnue.EvaluateScratch(pos));
+            }
+            return;
+        }
     }
 }
 

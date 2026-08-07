@@ -1,9 +1,11 @@
+using System.Runtime.CompilerServices;
 using Zoomies.Core;
 
 namespace Zoomies.Engine;
 
 internal static class Quiescence
 {
+    [SkipLocalsInit]
     public static int Search(SearchState state, Position position, int alpha, int beta, int ply)
     {
         if (state.StopRequested) return 0;

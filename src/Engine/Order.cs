@@ -1,9 +1,11 @@
+using System.Runtime.CompilerServices;
 using Zoomies.Core;
 
 namespace Zoomies.Engine;
 
 internal static class Order
 {
+    [SkipLocalsInit]
     public static int TacticalMoves(Position position, Span<Move> moves)
     {
         Span<int> scores = stackalloc int[16];

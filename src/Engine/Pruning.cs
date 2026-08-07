@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Zoomies.Core;
 
 namespace Zoomies.Engine;
@@ -27,7 +28,8 @@ internal static class Pruning
         return t;
     }
 
-    public static int AlphaBeta(SearchState state, Position position, int depth, 
+    [SkipLocalsInit]
+    public static int AlphaBeta(SearchState state, Position position, int depth,
     int alpha, int beta, int ply, 
     bool allowNullMove = true, bool cutNode = false, Move excluded = default)
     {

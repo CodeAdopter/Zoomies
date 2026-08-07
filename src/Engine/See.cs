@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Zoomies.Core;
 
 namespace Zoomies.Engine;
@@ -17,6 +18,7 @@ internal static class See
         return Exact(pos, m) >= threshold;
     }
 
+    [SkipLocalsInit]
     public static int Exact(Position pos, Move m)
     {
         Square to = m.To;

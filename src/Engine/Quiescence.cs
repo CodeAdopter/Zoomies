@@ -15,6 +15,7 @@ internal static class Quiescence
 
         state.NodeCount++;
         state.QuiescenceNodeCount++;
+        if (ply > state.SelectiveDepth) state.SelectiveDepth = ply;
 
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);

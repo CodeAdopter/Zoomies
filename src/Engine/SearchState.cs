@@ -20,6 +20,7 @@ public sealed class SearchState
     public volatile bool StopRequested;
     public Move PrincipalVariationMove;
     public long BestMoveEffortNodes;
+    public int SelectiveDepth;
     public int RootDepth;
     public long SingularAttempts;
     public long SingularExtensions;
@@ -68,6 +69,7 @@ public sealed class SearchState
         NodeLimit = limits.MaxNodes;
         PrincipalVariationMove = default;
         BestMoveEffortNodes = 0;
+        SelectiveDepth = 0;
         Array.Clear(KillerMoves, 0, KillerMoves.Length);
         Array.Fill(PlayedPieceTo, -1);
     }

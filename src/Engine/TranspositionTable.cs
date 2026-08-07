@@ -47,6 +47,20 @@ public sealed class TranspositionTable
 
     public void NewSearch() => generation = (byte)((generation + 1) & 0x3F);
 
+    public int Hashfull()
+    {
+        int sample = (int)Math.Min(1000UL, mask + 1);
+        int used = 0;
+        for (int i = 0; i < sample; i++)
+        {
+            ulong data = Volatile.Read(ref table[i].Data);
+            if ((TtFlag)(byte)((data >> 40) & 3) != TtFlag.None &&
+                (byte)((data >> 42) & 0x3F) == generation)
+                used++;
+        }
+        return used * 1000 / Math.Max(1, sample);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong Pack(ushort move, short score, byte depth, TtFlag flag, byte gen) =>
           move

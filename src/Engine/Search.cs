@@ -143,9 +143,10 @@ public sealed class Search
                         ? $"mate {-((Eval.MateValue + score + 1) / 2)}"
                         : $"cp {score}";
                 Console.WriteLine(
-                    $"info depth {depth} score {scoreText} nodes {state.NodeCount} " +
-                    $"nps {nodesPerSecond} time {elapsedMilliseconds} " +
-                    $"effort {effortPercent} pv {state.PrincipalVariationMove}");
+                    $"info depth {depth} seldepth {state.SelectiveDepth} score {scoreText} " +
+                    $"nodes {state.NodeCount} nps {nodesPerSecond} " +
+                    $"hashfull {state.Tt.Hashfull()} time {elapsedMilliseconds} " +
+                    $"effort {effortPercent} pv {BuildPrincipalVariation(position, depth)}");
             }
 
             if (state.ReachedSearchLimit()) break;
@@ -186,6 +187,42 @@ public sealed class Search
         LastSingularNegativeExtensions = state.SingularNegativeExtensions;
         LastSingularDoubleExtensions = state.SingularDoubleExtensions;
         return state.PrincipalVariationMove;
+    }
+
+    private string BuildPrincipalVariation(Position position, int maxLength)
+    {
+        var line = new System.Text.StringBuilder();
+        Span<Move> moves = stackalloc Move[256];
+        Span<Move> played = stackalloc Move[SearchState.MaximumPly];
+        int count = 0;
+        Move current = state.PrincipalVariationMove;
+
+        while (count < maxLength && count < played.Length && current.EncodedValue != 0)
+        {
+            int legalCount = GenerateLegalMoves(position, moves);
+            bool legal = false;
+            for (int i = 0; i < legalCount; i++)
+            {
+                if (moves[i] != current) continue;
+                legal = true;
+                break;
+            }
+            if (!legal) break;
+
+            if (count > 0) line.Append(' ');
+            line.Append(current);
+            position.Play(position.Turn, current);
+            played[count++] = current;
+
+            if (!state.Tt.Probe(position.History[position.Ply].Hash, out TranspositionTable.Entry entry))
+                break;
+            current = new Move(entry.Move);
+        }
+
+        for (int i = count - 1; i >= 0; i--)
+            position.Undo(position.Turn.Flip(), played[i]);
+
+        return line.ToString();
     }
 
     public static int GenerateLegalMoves(Position position, Span<Move> buffer) =>

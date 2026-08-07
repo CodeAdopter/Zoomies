@@ -86,6 +86,7 @@ internal static class Pruning
             return Quiescence.Search(state, position, alpha, beta, ply);
 
         state.NodeCount++;
+        if (ply > state.SelectiveDepth) state.SelectiveDepth = ply;
 
         int staticEval = inCheck ? 0 : CorrectEval(state, position, Eval.Evaluate(position));
         state.StaticEvalStack[ply] = inCheck ? SearchState.NoStaticEval : staticEval;

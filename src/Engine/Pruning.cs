@@ -16,6 +16,8 @@ internal static class Pruning
     private const int SingularTtSlack = 3;
     private const int DoubleExtensionMargin = 60;
     private const int DoubleExtensionLimit = 6;
+    private const int QuietSeeMaxDepth = 8;
+    private const int QuietSeeMargin = 80;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -210,12 +212,6 @@ internal static class Pruning
         Move bestMove = default;
         bool isPv = beta - alpha > 1;
 
-        // futility pruning
-        bool futile = !inCheck &&
-            depth <= 2 &&
-            alpha > -Eval.MateBound &&
-            pruneEval + 100 + 120 * depth + (improving ? 40 : -30) <= alpha;
-
         Span<Move> triedQuiets = stackalloc Move[64];
         int triedQuietCount = 0;
 
@@ -234,9 +230,13 @@ internal static class Pruning
                 i >= quietStart + LmpBudget(depth, improving))
                 break;
 
-            if (futile &&
-                bestScore > -SearchState.Infinity &&
-                isQuiet)
+            // futility pruning
+            if (bestScore > -SearchState.Infinity &&
+                !inCheck &&
+                depth <= 2 &&
+                isQuiet &&
+                alpha > -Eval.MateBound &&
+                pruneEval + 100 + 120 * depth + (improving ? 40 : -30) <= alpha)
                 continue;
 
             // history pruning: skip quiets with very poor history at low depth
@@ -254,6 +254,15 @@ internal static class Pruning
                 depth <= 8 &&
                 move.IsCapture &&
                 !See.Ge(position, move, -100 * depth))
+                continue;
+
+            // quiet SEE pruning
+            if (bestScore > -Eval.MateBound &&
+                ply > 0 &&
+                !inCheck &&
+                depth <= QuietSeeMaxDepth &&
+                isQuiet &&
+                !See.Ge(position, move, -QuietSeeMargin * depth))
                 continue;
 
             // singular extension: 

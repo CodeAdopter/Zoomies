@@ -22,7 +22,6 @@ public static class Uci
     }
 
     private const int MaxHashMb = 16384;
-    private const int DefaultSearchDepth = 8;
     private const int DefaultBenchmarkDepth = 9;
 
     public static void Run()
@@ -274,7 +273,7 @@ public static class Uci
         }
         else
         {
-            limits.MaxDepth = DefaultSearchDepth;
+            limits.SearchUntilStopped = true;
         }
 
         return limits;

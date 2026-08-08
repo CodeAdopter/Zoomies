@@ -12,9 +12,8 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <RootNamespace>Zoomies</RootNamespace>
     <AssemblyName>zoomies</AssemblyName>
-    <Version>3.10</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>3.20</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

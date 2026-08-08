@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 using Zoomies.Core;
 using Zoomies.Engine;
@@ -7,7 +8,18 @@ namespace Zoomies;
 
 public static class Uci
 {
-    private const string EngineName = "Zoomies 1";
+    private static readonly string EngineName = BuildEngineName();
+
+    private static string BuildEngineName()
+    {
+        string? version = typeof(Uci).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+        if (string.IsNullOrEmpty(version)) return "Zoomies";
+        int metadataStart = version.IndexOf('+');
+        if (metadataStart >= 0) version = version[..metadataStart];
+        return $"Zoomies v{version}";
+    }
 
     private const int MaxHashMb = 16384;
     private const int DefaultSearchDepth = 8;

@@ -122,22 +122,34 @@ public static class Uci
         Console.WriteLine($"id name {EngineName}");
         Console.WriteLine("id author Angelo Wolff");
         Console.WriteLine($"option name Hash type spin default 16 min 1 max {MaxHashMb}");
+        Console.WriteLine("option name Threads type spin default 1 min 1 max 1");
+        Console.WriteLine("option name Clear Hash type button");
         Console.WriteLine("uciok");
     }
 
     private static void ParseSetOption(Search search, string[] tokens)
     {
         int nameIndex = Array.IndexOf(tokens, "name");
-        int valueIndex = Array.IndexOf(tokens, "value");
-        if (nameIndex < 0 || valueIndex < nameIndex + 2 || valueIndex + 1 >= tokens.Length)
-            return;
+        if (nameIndex < 0 || nameIndex + 1 >= tokens.Length) return;
 
-        string name = string.Join(' ', tokens[(nameIndex + 1)..valueIndex]);
+        int valueIndex = Array.IndexOf(tokens, "value", nameIndex + 1);
+        string name = string.Join(' ', tokens[(nameIndex + 1)..(valueIndex < 0 ? tokens.Length : valueIndex)]);
+        string? value = valueIndex >= 0 && valueIndex + 1 < tokens.Length
+                        ? tokens[valueIndex + 1]
+                        : null;
+
         switch (name.ToLowerInvariant())
         {
             case "hash":
-                if (int.TryParse(tokens[valueIndex + 1], out int sizeMb))
+                if (int.TryParse(value, out int sizeMb))
                     search.ResizeHash(Math.Clamp(sizeMb, 1, MaxHashMb));
+                break;
+
+            case "threads":
+                break;
+
+            case "clear hash":
+                search.ClearHash();
                 break;
         }
     }

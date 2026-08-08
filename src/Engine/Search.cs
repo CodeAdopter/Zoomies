@@ -71,6 +71,8 @@ public sealed class Search
 
     public void ResizeHash(int sizeMb) => state.Tt.Resize(sizeMb);
 
+    public void ClearHash() => state.Tt.Clear();
+
     public Move FindBestMove(Position position, SearchLimits limits)
     {
         state.Reset(in limits);

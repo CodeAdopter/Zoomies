@@ -35,7 +35,7 @@ public static class Nnue
         int k = r / BlockRows;
         if (ver != 1 || !screlu || r % BlockRows != 0
             || (a2 && (k != 1 || b != 1))
-            || (b1 && (k != 4 && k != 8 || b < 1 || b > 8)))
+            || (b1 && ((k != 4 && k != 8 && k != 16 && k != 32) || b < 1 || b > 8)))
             throw new InvalidDataException($"{path}: unsupported {(b1 ? "ZOO768B1" : "ZOO768A2")} (ver {ver} rows {r} screlu {screlu} buckets {b})");
         long need = 20 + 2L * n + 2L * r * n + b * (4 + 4L * n);
         if (bytes.Length != need) throw new InvalidDataException($"{path}: size {bytes.Length} != expected {need} for l1={n}");
@@ -99,7 +99,7 @@ public static class Nnue
         public void Reset() { BasePly = int.MinValue / 4; Array.Clear(Valid); }
     }
 
-    private const int KbMax = 8;
+    private const int KbMax = 32;
 
     private static Span<short> Level(State st, int idx) => st.Acc.AsSpan(idx * 2 * st.L1, 2 * st.L1);
 
@@ -123,7 +123,17 @@ public static class Nnue
                     : 3 - (f >> 1);
     }
 
-    private static int KingBucketOf(int ok) => kb == 8 ? KingBucket8(ok) : KingBucket4(ok);
+    private static int KingBucket16(int ok) => 2 * KingBucket8(ok) + ((ok >> 3) & 1);
+
+    private static int KingBucket32(int ok)
+    {
+        int r = ok >> 3, f = ok & 7;
+        int bit = r >= 4 ? (f >> 2) & 1 : r >= 2 ? (f >> 1) & 1 : f & 1;
+        return 2 * KingBucket16(ok) + bit;
+    }
+
+    private static int KingBucketOf(int ok) =>
+        kb == 32 ? KingBucket32(ok) : kb == 16 ? KingBucket16(ok) : kb == 8 ? KingBucket8(ok) : KingBucket4(ok);
 
     private static int BucketBase(int p, int ksq) => kb > 1 ? BlockRows * KingBucketOf(ksq ^ Orient(p)) : 0;
 

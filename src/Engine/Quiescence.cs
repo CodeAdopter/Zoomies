@@ -81,7 +81,7 @@ internal static class Quiescence
                         Eval.PieceValue[(int)PieceType.Pawn];
                 }
 
-                if (standingPatScore + maxGain + SearchState.DeltaMargin <= alpha)
+                if (standingPatScore + maxGain + Tune.DeltaMargin <= alpha)
                     return standingPatScore;
             }
         }
@@ -138,7 +138,7 @@ internal static class Quiescence
                             Eval.PieceValue[(int)PieceType.Pawn];
                     }
 
-                    if (standingPatScore + gain + SearchState.DeltaMargin <= alpha)
+                    if (standingPatScore + gain + Tune.DeltaMargin <= alpha)
                         continue;
                 }
 

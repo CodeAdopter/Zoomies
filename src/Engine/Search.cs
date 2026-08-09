@@ -103,8 +103,8 @@ public sealed class Search
             // widen exponentially on fail until the score fits
             int alpha = -SearchState.Infinity;
             int beta = SearchState.Infinity;
-            int delta = 25;
-            if (depth >= 4)
+            int delta = Tune.AspDelta;
+            if (depth >= Tune.AspMinDepth)
             {
                 alpha = Math.Max(lastScore - delta, -SearchState.Infinity);
                 beta = Math.Min(lastScore + delta, SearchState.Infinity);
@@ -123,7 +123,7 @@ public sealed class Search
                 else
                     break;
 
-                delta *= 2;
+                delta = delta * Tune.AspWiden / 16;
             }
             if (state.StopRequested && depth > 1) break;
 

@@ -6,18 +6,18 @@ namespace Zoomies.Engine;
 internal static class Pruning
 {
     private static readonly int[] LmpThreshold = [0, 5, 8, 12, 18, 26, 36];
-    private const int LmpMaxDepth = 4;
+    private static readonly int LmpMaxDepth = Math.Min(Tune.LmpMaxDepth, 6);
 
     private static int LmpBudget(int depth, bool improving) =>
-        Math.Max(LmpThreshold[depth] + (improving ? 2 : -1) - depth, 0);
+        Math.Max(LmpThreshold[depth] + (improving ? Tune.LmpImp : -Tune.LmpNonImp) - depth, 0);
 
-    private const int SingularMinDepth = 6;
-    private const int SingularMargin = 2;
-    private const int SingularTtSlack = 3;
-    private const int DoubleExtensionMargin = 60;
-    private const int DoubleExtensionLimit = 6;
-    private const int QuietSeeMaxDepth = 8;
-    private const int QuietSeeMargin = 80;
+    private static readonly int SingularMinDepth = Tune.SingularMinDepth;
+    private static readonly int SingularMargin = Tune.SingularMargin;
+    private static readonly int SingularTtSlack = Tune.SingularTtSlack;
+    private static readonly int DoubleExtensionMargin = Tune.DoubleExtensionMargin;
+    private static readonly int DoubleExtensionLimit = Tune.DoubleExtensionLimit;
+    private static readonly int QuietSeeMaxDepth = Tune.QuietSeeMaxDepth;
+    private static readonly int QuietSeeMargin = Tune.QuietSeeMargin;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -26,7 +26,7 @@ internal static class Pruning
         var t = new int[64 * 64];
         for (int d = 1; d < 64; d++)
             for (int m = 1; m < 64; m++)
-                t[(d << 6) | m] = (int)(0.75 + Math.Log(d) * Math.Log(m) / 2.25);
+                t[(d << 6) | m] = (int)(Tune.LmrBase / 100.0 + Math.Log(d) * Math.Log(m) / (Tune.LmrDiv / 100.0));
         return t;
     }
 
@@ -80,7 +80,7 @@ internal static class Pruning
         if (inCheck) depth++;
 
         // internal iterative reduction
-        if (ply > 0 && depth >= 4 && !inCheck && (!ttHit || ttEntry.Move == 0))
+        if (ply > 0 && depth >= Tune.IirMinDepth && !inCheck && (!ttHit || ttEntry.Move == 0))
         {
             depth--;
             if (cutNode) depth--;
@@ -113,22 +113,22 @@ internal static class Pruning
         // reverse futility pruning
         if (ply > 0 &&
             !inCheck &&
-            depth <= 6 &&
+            depth <= Tune.RfpMaxDepth &&
             beta < Eval.MateBound &&
-            pruneEval - (80 + (improving ? 20 : -10)) * depth >= beta)
-            return pruneEval;
+            pruneEval - (Tune.RfpBase + (improving ? Tune.RfpImp : -Tune.RfpNonImp)) * depth >= beta)
+                return pruneEval;
 
         // null move pruning
         if (allowNullMove &&
             !excludedSearch &&
             ply > 0 &&
-            depth >= 3 &&
+            depth >= Tune.NmpMinDepth &&
             beta < Eval.MateBound &&
             !inCheck &&
             HasNonPawnMaterial(position, position.Turn) &&
             pruneEval >= beta)
         {
-            int reduction = 3 + depth / 6;
+            int reduction = Tune.NmpBase + depth / Tune.NmpDiv;
             state.PlayedPieceTo[ply] = -1;
             position.MakeNullMove();
             int nullScore = -AlphaBeta(state, position, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false, !cutNode);
@@ -233,27 +233,27 @@ internal static class Pruning
             // futility pruning
             if (bestScore > -SearchState.Infinity &&
                 !inCheck &&
-                depth <= 2 &&
+                depth <= Tune.FutMaxDepth &&
                 isQuiet &&
                 alpha > -Eval.MateBound &&
-                pruneEval + 100 + 120 * depth + (improving ? 40 : -30) <= alpha)
+                pruneEval + Tune.FutBase + Tune.FutSlope * depth + (improving ? Tune.FutImp : -Tune.FutNonImp) <= alpha)
                 continue;
 
             // history pruning: skip quiets with very poor history at low depth
             if (bestScore > -SearchState.Infinity &&
                 !inCheck &&
-                depth <= 4 &&
+                depth <= Tune.HistPruneMaxDepth &&
                 isQuiet &&
                 i >= quietStart &&
                 alpha > -Eval.MateBound &&
-                quietScores[i] < -2048 * depth)
+                quietScores[i] < -Tune.HistPruneMult * depth)
                 continue;
 
             // SEE pruning: skip captures losing too much material at low depth
             if (bestScore > -SearchState.Infinity &&
-                depth <= 8 &&
+                depth <= Tune.SeePruneMaxDepth &&
                 move.IsCapture &&
-                !See.Ge(position, move, -100 * depth))
+                !See.Ge(position, move, -Tune.SeePruneMult * depth))
                 continue;
 
             // quiet SEE pruning
@@ -346,7 +346,7 @@ internal static class Pruning
                     if (isPv) rr--;
                     rr += improving ? -1 : 1;
                     if (cutNode) rr++;
-                    if (i >= quietStart) rr -= quietScores[i] / 8192;
+                    if (i >= quietStart) rr -= quietScores[i] / Tune.LmrHistDiv;
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);
                 }
@@ -461,7 +461,7 @@ internal static class Pruning
     }
 
     private static int HistoryBonus(int depth) =>
-        Math.Min(1200, 16 * depth * depth + 32 * depth + 16);
+        Math.Min(Tune.HistBonusCap, Tune.HistBonusQuad * depth * depth + Tune.HistBonusLin * depth + 16);
 
     private static void UpdateQuietHistory(
         SearchState state, Position position, Color side, Move move, int bonus, int previous1, int previous2)
@@ -491,7 +491,7 @@ internal static class Pruning
 
     private static void UpdateCorrectionHistory(SearchState state, Position position, int depth, int diff)
     {
-        int weight = Math.Min(depth + 1, 16);
+        int weight = Math.Min(depth + 1, Tune.CorrWeightCap);
         ref int entry = ref state.PawnCorrectionHistory[CorrectionIndex(position)];
         long value = ((long)entry * (CorrectionWeight - weight) + (long)diff * CorrectionGrain * weight) / CorrectionWeight;
         entry = (int)Math.Clamp(value, -CorrectionMax, CorrectionMax);

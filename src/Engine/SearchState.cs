@@ -7,7 +7,6 @@ public sealed class SearchState
 {
     public const int Infinity = 32000;
     public const int MaximumPly = 128;
-    public const int DeltaMargin = 200;
 
     public long NodeCount;
     public long QuiescenceNodeCount;

@@ -13,7 +13,8 @@ public static class Nnue
 
     private static short[] ftB = [], ftW = [], outW = [];
     private static int[] outBs = [];
-    private static int l1, rows, kb = 1, ob = 1;          
+    private static int l1, rows, kb = 1, ob = 1;
+    private static bool pairwise;
 
     public static bool Loaded { get; private set; }
     public static int L1 => l1;
@@ -25,42 +26,46 @@ public static class Nnue
         var s = bytes.AsSpan();
         bool a2 = bytes.Length >= 20 && s[..8].SequenceEqual("ZOO768A2"u8);
         bool b1 = bytes.Length >= 20 && s[..8].SequenceEqual("ZOO768B1"u8);
-        if (!a2 && !b1)
-            throw new InvalidDataException($"{path}: not a ZOO768A2/ZOO768B1 net");
+        bool p1 = bytes.Length >= 20 && s[..8].SequenceEqual("ZOO768P1"u8);
+        if (!a2 && !b1 && !p1)
+            throw new InvalidDataException($"{path}: not a ZOO768A2/ZOO768B1/ZOO768P1 net");
         uint ver = BinaryPrimitives.ReadUInt32LittleEndian(s[8..]);
         int r = (int)BinaryPrimitives.ReadUInt32LittleEndian(s[12..]);
         int n = BinaryPrimitives.ReadUInt16LittleEndian(s[16..]);
         bool screlu = (s[18] & 1) != 0;
         int b = s[19];
         int k = r / BlockRows;
-        if (ver != 1 || !screlu || r % BlockRows != 0
-            || (a2 && (k != 1 || b != 1))
-            || (b1 && ((k != 4 && k != 8 && k != 16 && k != 32) || b < 1 || b > 8)))
-            throw new InvalidDataException($"{path}: unsupported {(b1 ? "ZOO768B1" : "ZOO768A2")} (ver {ver} rows {r} screlu {screlu} buckets {b})");
-        long need = 20 + 2L * n + 2L * r * n + b * (4 + 4L * n);
+        bool okK = k == 1 || k == 4 || k == 8 || k == 16 || k == 32;
+        if (ver != 1 || r % BlockRows != 0
+            || (a2 && (!screlu || k != 1 || b != 1))
+            || (b1 && (!screlu || k == 1 || !okK || b < 1 || b > 8))
+            || (p1 && (s[18] != 0 || (n & 1) != 0 || !okK || b < 1 || b > 8)))
+            throw new InvalidDataException($"{path}: unsupported {(p1 ? "ZOO768P1" : b1 ? "ZOO768B1" : "ZOO768A2")} (ver {ver} rows {r} flags {s[18]} buckets {b})");
+        long need = 20 + 2L * n + 2L * r * n + b * (4 + (p1 ? 2L * n : 4L * n));
         if (bytes.Length != need) throw new InvalidDataException($"{path}: size {bytes.Length} != expected {need} for l1={n}");
 
         var fb = new short[n];
         var fw = new short[r * n];
         var obs = new int[b];
-        var ow = new short[b * 2 * n];
+        var ow = new short[p1 ? b * n : b * 2 * n];
         int off = 20;
         for (int i = 0; i < n; i++, off += 2) fb[i] = BinaryPrimitives.ReadInt16LittleEndian(s[off..]);
         for (int i = 0; i < r * n; i++, off += 2) fw[i] = BinaryPrimitives.ReadInt16LittleEndian(s[off..]);
+        int owPer = p1 ? n : 2 * n;
         for (int bk = 0; bk < b; bk++)
         {
             obs[bk] = BinaryPrimitives.ReadInt32LittleEndian(s[off..]); off += 4;
-            for (int i = 0; i < 2 * n; i++, off += 2) ow[bk * 2 * n + i] = BinaryPrimitives.ReadInt16LittleEndian(s[off..]);
+            for (int i = 0; i < owPer; i++, off += 2) ow[bk * owPer + i] = BinaryPrimitives.ReadInt16LittleEndian(s[off..]);
         }
 
-        ftB = fb; ftW = fw; outW = ow; outBs = obs; l1 = n; rows = r; kb = k; ob = b;
-        loadGen++; 
+        ftB = fb; ftW = fw; outW = ow; outBs = obs; l1 = n; rows = r; kb = k; ob = b; pairwise = p1;
+        loadGen++;
 
         int maxW = 0;
-        foreach (short x in ow) 
+        foreach (short x in ow)
             maxW = Math.Max(maxW, Math.Abs((int)x));
-            
-        useMadd = Avx2.IsSupported && (n / 16 / 2 + 2) * 2L * QA * QA * maxW <= int.MaxValue;
+
+        useMadd = !p1 && Avx2.IsSupported && (n / 16 / 2 + 2) * 2L * QA * QA * maxW <= int.MaxValue;
 
         Loaded = true;
         LoadedPath = path;
@@ -69,7 +74,7 @@ public static class Nnue
     private static int loadGen;
     private static bool useMadd;
 
-    public static void Unload() { Loaded = false; ftB = []; ftW = []; outW = []; outBs = []; l1 = 0; rows = 0; kb = 1; ob = 1; useMadd = false; LoadedPath = ""; }
+    public static void Unload() { Loaded = false; ftB = []; ftW = []; outW = []; outBs = []; l1 = 0; rows = 0; kb = 1; ob = 1; pairwise = false; useMadd = false; LoadedPath = ""; }
 
     public static void AutoLoad()
     {
@@ -365,12 +370,76 @@ public static class Nnue
     {
         int n = l1;
         int bk = ob > 1 ? Math.Min((pieceCnt - 1) >> 2, ob - 1) : 0;
+        if (pairwise)
+        {
+            int bankOffP = bk * n;
+            long sumP = outBs[bk]
+                + DotPair(acc.Slice(stm * n, n), outW.AsSpan(bankOffP, n / 2))
+                + DotPair(acc.Slice((stm ^ 1) * n, n), outW.AsSpan(bankOffP + n / 2, n / 2));
+
+            int cpP = (int)(sumP * 256L * Scale / ((long)QA * QA * QO));
+            return Math.Clamp(cpP, -Eval.MateBound + 1, Eval.MateBound - 1);
+        }
         int bankOff = bk * 2 * n;
         long sum = outBs[bk]
             + DotSq(acc.Slice(stm * n, n), outW.AsSpan(bankOff, n))
             + DotSq(acc.Slice((stm ^ 1) * n, n), outW.AsSpan(bankOff + n, n));
         int cp = (int)(sum * Scale / ((long)QA * QA * QO));
         return Math.Clamp(cp, -Eval.MateBound + 1, Eval.MateBound - 1);
+    }
+
+    private static long DotPair(ReadOnlySpan<short> half, ReadOnlySpan<short> w) =>
+        Avx2.IsSupported ? DotPairAvx2(half, w) : DotPairScalar(half, w);
+
+    private static long DotPairAvx2(ReadOnlySpan<short> half, ReadOnlySpan<short> w)
+    {
+        int pairs = half.Length >> 1;
+        ref short ra = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(half);
+        ref short rw = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(w);
+        var zero = Vector256<short>.Zero;
+        var qa = Vector256.Create((short)QA);
+        var rnd = Vector256.Create((short)128);
+        var acc0 = Vector256<int>.Zero;
+        var acc1 = Vector256<int>.Zero;
+        int j = 0;
+        for (; j + 32 <= pairs; j += 32)
+        {
+            var lo0 = Avx2.Min(Avx2.Max(Vector256.LoadUnsafe(ref ra, (nuint)j), zero), qa);
+            var hi0 = Avx2.Min(Avx2.Max(Vector256.LoadUnsafe(ref ra, (nuint)(j + pairs)), zero), qa);
+            var lo1 = Avx2.Min(Avx2.Max(Vector256.LoadUnsafe(ref ra, (nuint)(j + 16)), zero), qa);
+            var hi1 = Avx2.Min(Avx2.Max(Vector256.LoadUnsafe(ref ra, (nuint)(j + 16 + pairs)), zero), qa);
+            var act0 = Avx2.ShiftRightLogical(Avx2.AddSaturate(Avx2.MultiplyLow(lo0, hi0), rnd), 8);
+            var act1 = Avx2.ShiftRightLogical(Avx2.AddSaturate(Avx2.MultiplyLow(lo1, hi1), rnd), 8);
+            acc0 = Avx2.Add(acc0, Avx2.MultiplyAddAdjacent(act0, Vector256.LoadUnsafe(ref rw, (nuint)j)));
+            acc1 = Avx2.Add(acc1, Avx2.MultiplyAddAdjacent(act1, Vector256.LoadUnsafe(ref rw, (nuint)(j + 16))));
+        }
+        for (; j + 16 <= pairs; j += 16)
+        {
+            var lo0 = Avx2.Min(Avx2.Max(Vector256.LoadUnsafe(ref ra, (nuint)j), zero), qa);
+            var hi0 = Avx2.Min(Avx2.Max(Vector256.LoadUnsafe(ref ra, (nuint)(j + pairs)), zero), qa);
+            var act0 = Avx2.ShiftRightLogical(Avx2.AddSaturate(Avx2.MultiplyLow(lo0, hi0), rnd), 8);
+            acc0 = Avx2.Add(acc0, Avx2.MultiplyAddAdjacent(act0, Vector256.LoadUnsafe(ref rw, (nuint)j)));
+        }
+        long sum = WideSum(acc0) + WideSum(acc1);
+        for (; j < pairs; j++)
+            sum += PairAct(half[j], half[j + pairs]) * w[j];
+        return sum;
+    }
+
+    // scalar mirror of the AVX2 lane math, including the saturating rounding add
+    private static int PairAct(int a, int b)
+    {
+        int p = Math.Clamp(a, 0, QA) * Math.Clamp(b, 0, QA);
+        return Math.Min(p + 128, 32767) >> 8;
+    }
+
+    private static long DotPairScalar(ReadOnlySpan<short> half, ReadOnlySpan<short> w)
+    {
+        int pairs = half.Length >> 1;
+        long sum = 0;
+        for (int j = 0; j < pairs; j++)
+            sum += PairAct(half[j], half[j + pairs]) * w[j];
+        return sum;
     }
 
     private static long DotSq(ReadOnlySpan<short> acc, ReadOnlySpan<short> w) => useMadd ? DotSqMadd(acc, w) : DotSqWiden(acc, w);

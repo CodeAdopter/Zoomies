@@ -45,6 +45,10 @@ if (args.Length > 0)
             Environment.Exit(Zoomies.Training.NnueCheck.Cli(args));
             return;
 
+        case "nnuebench":
+            Environment.Exit(Zoomies.Training.NnueBench.Cli(args));
+            return;
+
         case "nnueverify":
             Environment.Exit(Zoomies.Training.NnueVerify4.Cli(args));
             return;

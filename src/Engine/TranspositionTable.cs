@@ -12,6 +12,7 @@ public sealed class TranspositionTable
         public short Score;
         public byte Depth;
         public TtFlag Flag;
+        public bool WasPv;
     }
 
     // Slot layout: Data packs move(0-15) | score(16-31) | depth(32-39) | flag(40-41) | gen(42-47).
@@ -62,11 +63,12 @@ public sealed class TranspositionTable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong Pack(ushort move, short score, byte depth, TtFlag flag, byte gen) =>
+    private static ulong Pack(ushort move, short score, byte depth, TtFlag flag, byte gen, bool wasPv) =>
           move
         | ((ulong)(ushort)score << 16)
         | ((ulong)depth << 32)
-        | ((ulong)(uint)((int)flag | (gen << 2)) << 40);
+        | ((ulong)(uint)((int)flag | (gen << 2)) << 40)
+        | ((wasPv ? 1UL : 0UL) << 48);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Probe(ulong key, out Entry entry)
@@ -89,6 +91,7 @@ public sealed class TranspositionTable
                         Score = (short)(data >> 16),
                         Depth = (byte)(data >> 32),
                         Flag = flag,
+                        WasPv = ((data >> 48) & 1) != 0,
                     };
                     return true;
                 }
@@ -98,7 +101,7 @@ public sealed class TranspositionTable
         return false;
     }
 
-    public void Store(ulong key, ushort move, int score, int depth, TtFlag flag)
+    public void Store(ulong key, ushort move, int score, int depth, TtFlag flag, bool wasPv)
     {
         ref Slot s = ref table[SelectSlot(key)];
         ulong oldData = Volatile.Read(ref s.Data);
@@ -114,7 +117,7 @@ public sealed class TranspositionTable
             return;
 
         ushort finalMove = move != 0 ? move : samePosition ? (ushort)oldData : (ushort)0;
-        ulong data = Pack(finalMove, (short)score, (byte)depth, flag, generation);
+        ulong data = Pack(finalMove, (short)score, (byte)depth, flag, generation, wasPv);
         Volatile.Write(ref s.Data, data);
         Volatile.Write(ref s.KeyXorData, key ^ data);
     }

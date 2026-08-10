@@ -75,6 +75,7 @@ internal static class Pruning
         }
 
         bool inCheck = position.InCheck(position.Turn);
+        bool ttPv = beta - alpha > 1 || (ttHit && ttEntry.WasPv);
 
         // check extensions
         if (inCheck) depth++;
@@ -343,7 +344,7 @@ internal static class Pruning
                     move != state.KillerMoves[ply, 1])
                 {
                     int rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
-                    if (isPv) rr--;
+                    if (ttPv) rr--;
                     rr += improving ? -1 : 1;
                     if (cutNode) rr++;
                     if (i >= quietStart) rr -= quietScores[i] / Tune.LmrHistDiv;
@@ -353,7 +354,11 @@ internal static class Pruning
 
                 score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode);
                 if (score > alpha && (reduction > 0 || score < beta))
-                    score = -AlphaBeta(state, position, depth - 1, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
+                {
+                    int newDepth = depth - 1;
+                    if (reduction > 0 && score > bestScore + Tune.DoDeeperMargin) newDepth++;
+                    score = -AlphaBeta(state, position, newDepth, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
+                }
             }
 
             position.Undo(sideToMove, move);
@@ -413,7 +418,8 @@ internal static class Pruning
                 bestMove.EncodedValue,
                 TranspositionTable.ScoreToTt(bestScore, ply),
                 depth,
-                storeFlag);
+                storeFlag,
+                ttPv);
 
         return bestScore;
     }

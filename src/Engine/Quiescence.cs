@@ -35,6 +35,7 @@ internal static class Quiescence
             }
         }
         Move ttMove = ttHit ? new Move(ttEntry.Move) : default;
+        bool ttPv = beta - alpha > 1 || (ttHit && ttEntry.WasPv);
 
         bool inCheck = position.InCheck(position.Turn);
         int bestScore = -SearchState.Infinity;
@@ -56,7 +57,7 @@ internal static class Quiescence
             bestScore = standingPatScore;
             if (standingPatScore >= beta)
             {
-                state.Tt.Store(key, 0, TranspositionTable.ScoreToTt(standingPatScore, ply), 0, TtFlag.Lower);
+                state.Tt.Store(key, 0, TranspositionTable.ScoreToTt(standingPatScore, ply), 0, TtFlag.Lower, ttPv);
                 return standingPatScore;
             }
             if (standingPatScore > alpha) alpha = standingPatScore;
@@ -90,7 +91,7 @@ internal static class Quiescence
             return Pruning.CorrectEval(state, position, Eval.Evaluate(position));
         }
 
-        // in check we need to generate every legal evasion 
+        // in check we need to generate every legal evasion
         Span<Move> moves = stackalloc Move[256];
         int moveCount = inCheck
             ? Engine.Search.GenerateLegalMoves(position, moves)
@@ -176,7 +177,7 @@ internal static class Quiescence
             }
             if (score >= beta)
             {
-                state.Tt.Store(key, move.EncodedValue, TranspositionTable.ScoreToTt(score, ply), 0, TtFlag.Lower);
+                state.Tt.Store(key, move.EncodedValue, TranspositionTable.ScoreToTt(score, ply), 0, TtFlag.Lower, ttPv);
                 return score;
             }
             if (score > alpha) alpha = score;
@@ -187,7 +188,8 @@ internal static class Quiescence
             bestMove.EncodedValue,
             TranspositionTable.ScoreToTt(bestScore, ply),
             0,
-            TtFlag.Upper);
+            TtFlag.Upper,
+            ttPv);
 
         return bestScore;
     }

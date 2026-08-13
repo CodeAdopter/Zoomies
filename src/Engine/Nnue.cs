@@ -39,7 +39,7 @@ public static class Nnue
         if (ver != 1 || r % BlockRows != 0
             || (a2 && (!screlu || k != 1 || b != 1))
             || (b1 && (!screlu || k == 1 || !okK || b < 1 || b > 8))
-            || (p1 && (s[18] != 0 || (n & 1) != 0 || !okK || b < 1 || b > 8)))
+            || (p1 && (s[18] != 0 || (n & 1) != 0 || !okK || b < 1 || b > 16)))
             throw new InvalidDataException($"{path}: unsupported {(p1 ? "ZOO768P1" : b1 ? "ZOO768B1" : "ZOO768A2")} (ver {ver} rows {r} flags {s[18]} buckets {b})");
         long need = 20 + 2L * n + 2L * r * n + b * (4 + (p1 ? 2L * n : 4L * n));
         if (bytes.Length != need) throw new InvalidDataException($"{path}: size {bytes.Length} != expected {need} for l1={n}");
@@ -300,8 +300,12 @@ public static class Nnue
             st.Valid[idx] = 3;
         }
         ulong occ = pos.AllPieces(Color.White) | pos.AllPieces(Color.Black);
-        return Output(Level(st, idx), (int)pos.Turn, BitOperations.PopCount(occ));
+        return Output(Level(st, idx), (int)pos.Turn, BitOperations.PopCount(occ), QueenBit(pos));
     }
+
+    // Any queen (either colour) on the board
+    private static int QueenBit(Position pos) =>
+        (pos.BitboardOf(Color.White, PieceType.Queen) | pos.BitboardOf(Color.Black, PieceType.Queen)) != 0 ? 1 : 0;
 
     // Stateless scratch eval
     public static int EvaluateScratch(Position pos)
@@ -309,7 +313,7 @@ public static class Nnue
         Span<short> acc = stackalloc short[2 * l1];
         Refresh(pos, acc);
         ulong occ = pos.AllPieces(Color.White) | pos.AllPieces(Color.Black);
-        return Output(acc, (int)pos.Turn, BitOperations.PopCount(occ));
+        return Output(acc, (int)pos.Turn, BitOperations.PopCount(occ), QueenBit(pos));
     }
 
     // Finny table refresh
@@ -366,10 +370,11 @@ public static class Nnue
         }
     }
 
-    private static int Output(ReadOnlySpan<short> acc, int stm, int pieceCnt)
+    private static int Output(ReadOnlySpan<short> acc, int stm, int pieceCnt, int qbit)
     {
         int n = l1;
-        int bk = ob > 1 ? Math.Min((pieceCnt - 1) >> 2, ob - 1) : 0;
+        int bk = ob == 16 ? 2 * Math.Min((pieceCnt - 1) >> 2, 7) + qbit
+               : ob > 1 ? Math.Min((pieceCnt - 1) >> 2, ob - 1) : 0;
         if (pairwise)
         {
             int bankOffP = bk * n;

@@ -22,6 +22,7 @@ public static class Uci
     }
 
     private const int MaxHashMb = 16384;
+    private const int MaxThreads = 1024;
     private const int DefaultBenchmarkDepth = 9;
 
     public static void Run()
@@ -122,7 +123,7 @@ public static class Uci
         Console.WriteLine($"id name {EngineName}");
         Console.WriteLine("id author Angelo Wolff");
         Console.WriteLine($"option name Hash type spin default 16 min 1 max {MaxHashMb}");
-        Console.WriteLine("option name Threads type spin default 1 min 1 max 1");
+        Console.WriteLine($"option name Threads type spin default 1 min 1 max {MaxThreads}");
         Console.WriteLine("option name Clear Hash type button");
         Console.WriteLine("uciok");
     }
@@ -146,6 +147,8 @@ public static class Uci
                 break;
 
             case "threads":
+                if (int.TryParse(value, out int threadCount))
+                    search.SetThreads(Math.Clamp(threadCount, 1, MaxThreads));
                 break;
 
             case "clear hash":

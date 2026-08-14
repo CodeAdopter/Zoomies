@@ -44,7 +44,19 @@ public sealed class Search
         return table;
     }
 
+    private static readonly int[] SkipSize  = [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4];
+    private static readonly int[] SkipPhase = [0, 1, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3];
+
     private readonly SearchState state = new();
+    private int threadCount = 1;
+    private SearchState[] helperStates = [];
+
+    private struct ThreadResult
+    {
+        public Move BestMove;
+        public int Score;
+        public int Depth;
+    }
 
     public bool SuppressOutput { get; set; }
     public long LastNodeCount { get; private set; }
@@ -59,14 +71,44 @@ public sealed class Search
     public long LastSingularNegativeExtensions { get; private set; }
     public long LastSingularDoubleExtensions { get; private set; }
 
-    public void Stop() => state.StopRequested = true;
+    public void Stop()
+    {
+        state.StopRequested = true;
+        for (int i = 0; i < helperStates.Length; i++)
+            helperStates[i].StopRequested = true;
+    }
 
-    public void ResetStopRequest() => state.StopRequested = false;
+    public void ResetStopRequest()
+    {
+        state.StopRequested = false;
+        for (int i = 0; i < helperStates.Length; i++)
+            helperStates[i].StopRequested = false;
+    }
+
+    // Number of search threads
+    public void SetThreads(int count)
+    {
+        threadCount = Math.Max(1, count);
+        EnsureHelpers();
+    }
+
+    private void EnsureHelpers()
+    {
+        int wanted = threadCount - 1;
+        if (helperStates.Length == wanted) return;
+
+        var newStates = new SearchState[wanted];
+        for (int i = 0; i < wanted; i++)
+            newStates[i] = i < helperStates.Length ? helperStates[i] : new SearchState(state.Tt);
+        helperStates = newStates;
+    }
 
     public void NewGame()
     {
         state.Tt.Clear();
         state.ClearHistory();
+        for (int i = 0; i < helperStates.Length; i++)
+            helperStates[i].ClearHistory();
     }
 
     public void ResizeHash(int sizeMb) => state.Tt.Resize(sizeMb);
@@ -75,29 +117,123 @@ public sealed class Search
 
     public Move FindBestMove(Position position, SearchLimits limits)
     {
-        state.Reset(in limits);
+        if (threadCount <= 1 || helperStates.Length == 0)
+        {
+            ThreadResult solo = RunIterativeDeepening(state, position, in limits, 0, isMain: true);
+            state.StopRequested = false;
+            PublishStats(solo);
+            return solo.BestMove;
+        }
+
+        return FindBestMoveParallel(position, in limits);
+    }
+
+    private Move FindBestMoveParallel(Position position, in SearchLimits limits)
+    {
+        SearchLimits mainLimits = limits;
+        SearchLimits helperLimits = limits;
+        if (limits.MaxNodes > 0)
+        {
+            long share = Math.Max(1, limits.MaxNodes / threadCount);
+            mainLimits.MaxNodes = share;
+            helperLimits.MaxNodes = share;
+        }
+
+        var clones = new Position[helperStates.Length];
+        for (int i = 0; i < helperStates.Length; i++)
+            clones[i] = new Position(position);
+
+        var workers = new Thread[helperStates.Length];
+        var results = new ThreadResult[helperStates.Length];
+        for (int i = 0; i < helperStates.Length; i++)
+        {
+            int idx = i;
+            SearchState st = helperStates[idx];
+            Position pos = clones[idx];
+            workers[idx] = new Thread(() =>
+            {
+                try { results[idx] = RunIterativeDeepening(st, pos, in helperLimits, idx + 1, isMain: false); }
+                catch { results[idx] = default; }
+            })
+            { IsBackground = true, Name = $"search-helper-{idx + 1}" };
+            workers[idx].Start();
+        }
+
+        ThreadResult mainResult = RunIterativeDeepening(state, position, in mainLimits, 0, isMain: true);
+        Stop();
+        for (int i = 0; i < workers.Length; i++)
+            workers[i].Join();
+
+        state.StopRequested = false;
+        for (int i = 0; i < helperStates.Length; i++)
+            helperStates[i].StopRequested = false;
+
+        ThreadResult best = mainResult;
+        for (int i = 0; i < results.Length; i++)
+        {
+            ThreadResult r = results[i];
+            if (r.BestMove.EncodedValue == 0) continue;
+            if (r.Depth > best.Depth || (r.Depth == best.Depth && r.Score > best.Score))
+                best = r;
+        }
+
+        PublishStats(mainResult, best);
+        return best.BestMove;
+    }
+
+    private void PublishStats(ThreadResult mainResult) => PublishStats(mainResult, mainResult);
+
+    private void PublishStats(ThreadResult mainResult, ThreadResult voted)
+    {
+        long nodes = state.NodeCount;
+        long qNodes = state.QuiescenceNodeCount;
+        long evals = state.EvaluationCount;
+        for (int i = 0; i < helperStates.Length; i++)
+        {
+            nodes += helperStates[i].NodeCount;
+            qNodes += helperStates[i].QuiescenceNodeCount;
+            evals += helperStates[i].EvaluationCount;
+        }
+
+        LastNodeCount = nodes;
+        LastQuiescenceNodeCount = qNodes;
+        LastEvaluationCount = evals;
+        LastElapsedMilliseconds = state.Clock.ElapsedMilliseconds;
+        LastScore = voted.Score;
+        LastDepth = voted.Depth;
+        LastSingularAttempts = state.SingularAttempts;
+        LastSingularExtensions = state.SingularExtensions;
+        LastSingularMulticuts = state.SingularMulticuts;
+        LastSingularNegativeExtensions = state.SingularNegativeExtensions;
+        LastSingularDoubleExtensions = state.SingularDoubleExtensions;
+    }
+
+    private ThreadResult RunIterativeDeepening(
+        SearchState st, Position position, in SearchLimits limits, int threadIndex, bool isMain)
+    {
+        st.Reset(in limits, bumpTtGeneration: isMain);
 
         Span<Move> rootMoves = stackalloc Move[256];
         int rootMoveCount = GenerateLegalMoves(position, rootMoves);
         if (rootMoveCount == 0)
-        {
-            LastScore = 0;
-            LastDepth = 0;
             return default;
-        }
 
-        state.PrincipalVariationMove = rootMoves[0];
+        st.PrincipalVariationMove = rootMoves[0];
         int maxDepth = limits.MaxDepth > 0 ? limits.MaxDepth : SearchState.MaximumPly - 1;
         int lastScore = 0;
         int completedDepth = 0;
         Move previousBest = default;
         int stability = 0;
+        int skip = (threadIndex - 1) % SkipSize.Length;
 
         for (int depth = 1; depth <= maxDepth; depth++)
         {
-            state.RootDepth = depth;
-            long iterationStartNodes = state.NodeCount;
-            state.BestMoveEffortNodes = 0;
+            if (!isMain && (depth + SkipPhase[skip]) / SkipSize[skip] % 2 != 0)
+                continue;
+
+            st.RootDepth = depth;
+            long iterationStartNodes = st.NodeCount;
+            st.BestMoveEffortNodes = 0;
 
             // aspiration windows: start narrow around the previous score,
             // widen exponentially on fail until the score fits
@@ -113,8 +249,8 @@ public sealed class Search
             int score;
             while (true)
             {
-                score = Pruning.AlphaBeta(state, position, depth, alpha, beta, 0);
-                if (state.StopRequested) break;
+                score = Pruning.AlphaBeta(st, position, depth, alpha, beta, 0);
+                if (st.StopRequested) break;
 
                 if (score <= alpha)
                     alpha = Math.Max(score - delta, -SearchState.Infinity);
@@ -125,40 +261,42 @@ public sealed class Search
 
                 delta = delta * Tune.AspWiden / 16;
             }
-            if (state.StopRequested && depth > 1) break;
+            if (st.StopRequested && depth > 1) break;
 
             lastScore = score;
             completedDepth = depth;
 
-            long iterationNodes = Math.Max(1, state.NodeCount - iterationStartNodes);
-            int effortPercent = (int)(100 * state.BestMoveEffortNodes / iterationNodes);
+            long iterationNodes = Math.Max(1, st.NodeCount - iterationStartNodes);
+            int effortPercent = (int)(100 * st.BestMoveEffortNodes / iterationNodes);
 
-            if (!SuppressOutput)
+            if (isMain && !SuppressOutput)
             {
-                long elapsedMilliseconds = state.Clock.ElapsedMilliseconds;
+                long totalNodes = AggregateNodes();
+                long elapsedMilliseconds = st.Clock.ElapsedMilliseconds;
                 long nodesPerSecond = elapsedMilliseconds > 0
-                    ? state.NodeCount * 1000 / elapsedMilliseconds
-                    : state.NodeCount;
+                    ? totalNodes * 1000 / elapsedMilliseconds
+                    : totalNodes;
                 string scoreText = score >= Eval.MateBound
                     ? $"mate {(Eval.MateValue - score + 1) / 2}"
                     : score <= -Eval.MateBound
                         ? $"mate {-((Eval.MateValue + score + 1) / 2)}"
                         : $"cp {score}";
                 Console.WriteLine(
-                    $"info depth {depth} seldepth {state.SelectiveDepth} score {scoreText} " +
-                    $"nodes {state.NodeCount} nps {nodesPerSecond} " +
-                    $"hashfull {state.Tt.Hashfull()} time {elapsedMilliseconds} " +
+                    $"info depth {depth} seldepth {st.SelectiveDepth} score {scoreText} " +
+                    $"nodes {totalNodes} nps {nodesPerSecond} " +
+                    $"hashfull {st.Tt.Hashfull()} time {elapsedMilliseconds} " +
                     $"effort {effortPercent} pv {BuildPrincipalVariation(position, depth)}");
             }
 
-            if (state.ReachedSearchLimit()) break;
+            if (st.ReachedSearchLimit()) break;
+            if (!isMain) continue;
 
             // don't start another iteration if time is running out;
             // the hard limit still ends the search immediately
-            stability = state.PrincipalVariationMove == previousBest
+            stability = st.PrincipalVariationMove == previousBest
                 ? Math.Min(stability + 1, StabilityScale.Length - 1)
                 : 0;
-            previousBest = state.PrincipalVariationMove;
+            previousBest = st.PrincipalVariationMove;
 
             int effortScale = 100;
             if (depth >= EffortMinDepth)
@@ -169,26 +307,27 @@ public sealed class Search
             long combinedScale = Math.Clamp(
                 StabilityScale[stability] * effortScale / 100,
                 SoftScaleFloor, SoftScaleCeiling);
-            long softLimit = state.HasSoftLimit
-                ? state.SoftTimeLimitMilliseconds * combinedScale / 100
-                : state.SoftTimeLimitMilliseconds;
-            if (!state.SearchUntilStopped &&
-                state.Clock.ElapsedMilliseconds >= softLimit) break;
+            long softLimit = st.HasSoftLimit
+                ? st.SoftTimeLimitMilliseconds * combinedScale / 100
+                : st.SoftTimeLimitMilliseconds;
+            if (!st.SearchUntilStopped &&
+                st.Clock.ElapsedMilliseconds >= softLimit) break;
         }
 
-        state.StopRequested = false;
-        LastNodeCount = state.NodeCount;
-        LastQuiescenceNodeCount = state.QuiescenceNodeCount;
-        LastEvaluationCount = state.EvaluationCount;
-        LastElapsedMilliseconds = state.Clock.ElapsedMilliseconds;
-        LastScore = lastScore;
-        LastDepth = completedDepth;
-        LastSingularAttempts = state.SingularAttempts;
-        LastSingularExtensions = state.SingularExtensions;
-        LastSingularMulticuts = state.SingularMulticuts;
-        LastSingularNegativeExtensions = state.SingularNegativeExtensions;
-        LastSingularDoubleExtensions = state.SingularDoubleExtensions;
-        return state.PrincipalVariationMove;
+        return new ThreadResult
+        {
+            BestMove = st.PrincipalVariationMove,
+            Score = lastScore,
+            Depth = completedDepth,
+        };
+    }
+
+    private long AggregateNodes()
+    {
+        long nodes = state.NodeCount;
+        for (int i = 0; i < helperStates.Length; i++)
+            nodes += helperStates[i].NodeCount;
+        return nodes;
     }
 
     private string BuildPrincipalVariation(Position position, int maxLength)

@@ -497,7 +497,11 @@ public static class Nnue
             Vector.Widen(a * a, out Vector<int> s0, out Vector<int> s1);
             Vector.Widen(Vector.LoadUnsafe(ref rw, (nuint)j), out Vector<int> w0, out Vector<int> w1);
             accum += s0 * w0 + s1 * w1;
-            if (++sinceDrain == 16) { sum += Vector.Sum(accum); accum = Vector<int>.Zero; sinceDrain = 0; }
+            if (++sinceDrain == 8) 
+            { 
+                sum += Vector.Sum(accum); 
+                accum = Vector<int>.Zero; sinceDrain = 0; 
+            }
         }
         sum += Vector.Sum(accum);
         for (; j < len; j++) { int c = Math.Clamp((int)acc[j], 0, QA); sum += c * c * w[j]; }

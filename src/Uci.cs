@@ -124,6 +124,7 @@ public static class Uci
         Console.WriteLine("id author Angelo Wolff");
         Console.WriteLine($"option name Hash type spin default 16 min 1 max {MaxHashMb}");
         Console.WriteLine($"option name Threads type spin default 1 min 1 max {MaxThreads}");
+        Console.WriteLine($"option name Move Overhead type spin default {TimeManager.MoveOverheadMilliseconds} min 0 max 5000");
         Console.WriteLine("option name Clear Hash type button");
         Console.WriteLine("uciok");
     }
@@ -149,6 +150,11 @@ public static class Uci
             case "threads":
                 if (int.TryParse(value, out int threadCount))
                     search.SetThreads(Math.Clamp(threadCount, 1, MaxThreads));
+                break;
+
+            case "move overhead":
+                if (int.TryParse(value, out int overhead))
+                    TimeManager.MoveOverheadMilliseconds = Math.Clamp(overhead, 0, 5000);
                 break;
 
             case "clear hash":

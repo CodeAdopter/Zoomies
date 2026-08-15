@@ -379,22 +379,25 @@ internal static class Pruning
             if (score > alpha) alpha = score;
             if (alpha < beta) continue;
 
-            if (isQuiet)
+            if (!excludedSearch)
             {
-                UpdateQuietHistories(
-                    state, position, sideToMove, move,
-                    triedQuiets[..triedQuietCount], depth, previous1, previous2);
-                if (state.KillerMoves[ply, 0] != move)
+                if (isQuiet)
                 {
-                    state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
-                    state.KillerMoves[ply, 0] = move;
+                    UpdateQuietHistories(
+                        state, position, sideToMove, move,
+                        triedQuiets[..triedQuietCount], depth, previous1, previous2);
+                    if (state.KillerMoves[ply, 0] != move)
+                    {
+                        state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
+                        state.KillerMoves[ply, 0] = move;
+                    }
                 }
-            }
-            else
-            {
-                PenalizeQuiets(
-                    state, position, sideToMove, default,
-                    triedQuiets[..triedQuietCount], depth, previous1, previous2);
+                else
+                {
+                    PenalizeQuiets(
+                        state, position, sideToMove, default,
+                        triedQuiets[..triedQuietCount], depth, previous1, previous2);
+                }
             }
             break;
         }

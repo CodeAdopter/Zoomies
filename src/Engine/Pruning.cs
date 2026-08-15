@@ -190,24 +190,6 @@ internal static class Pruning
         Span<int> quietScores = stackalloc int[256];
         for (int i = quietStart; i < moveCount; i++)
             quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2);
-
-        for (int i = quietStart + 1; i < moveCount; i++)
-        {
-            Move move = moves[i];
-            int score = quietScores[i];
-            int insertionIndex = i - 1;
-
-            // shift moves with a lower score to the right
-            while (insertionIndex >= quietStart && quietScores[insertionIndex] < score)
-            {
-                moves[insertionIndex + 1] = moves[insertionIndex];
-                quietScores[insertionIndex + 1] = quietScores[insertionIndex];
-                insertionIndex--;
-            }
-
-            moves[insertionIndex + 1] = move;
-            quietScores[insertionIndex + 1] = score;
-        }
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
         Move bestMove = default;
@@ -218,6 +200,25 @@ internal static class Pruning
 
         for (int i = 0; i < moveCount; i++)
         {
+            if (i >= quietStart)
+            {
+                int best = i;
+                for (int j = i + 1; j < moveCount; j++)
+                    if (quietScores[j] > quietScores[best]) best = j;
+                if (best != i)
+                {
+                    Move bm = moves[best];
+                    int bs = quietScores[best];
+                    for (int k = best; k > i; k--)
+                    {
+                        moves[k] = moves[k - 1];
+                        quietScores[k] = quietScores[k - 1];
+                    }
+                    moves[i] = bm;
+                    quietScores[i] = bs;
+                }
+            }
+
             Move move = moves[i];
             if (excludedSearch && move == excluded) continue;
             bool isQuiet = !move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0;

@@ -33,8 +33,8 @@ public sealed class SearchState
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
-    public readonly int[] ContinuationHistory1 = new int[PieceToCount * PieceToCount];
-    public readonly int[] ContinuationHistory2 = new int[PieceToCount * PieceToCount];
+    public readonly short[] ContinuationHistory1 = new short[PieceToCount * PieceToCount];
+    public readonly short[] ContinuationHistory2 = new short[PieceToCount * PieceToCount];
     public readonly int[] PawnCorrectionHistory = new int[2 * CorrectionHistorySize];
     public readonly int[] PlayedPieceTo = new int[MaximumPly]; // -1 = none (root/null move)
     public readonly int[] StaticEvalStack = new int[MaximumPly];

@@ -484,6 +484,12 @@ internal static class Pruning
     // update the history value, giving more weight to recent results while keeping it bounded
     private static void Gravity(ref int entry, int bonus) => entry += bonus - entry * Math.Abs(bonus) / MaxHistory;
 
+    private static void Gravity(ref short entry, int bonus)
+    {
+        int v = entry + bonus - entry * Math.Abs(bonus) / MaxHistory;
+        entry = (short)v;
+    }
+
     private const int CorrectionGrain = 256;
     private const int CorrectionWeight = 256;
     private const int CorrectionMax = 32 * CorrectionGrain;

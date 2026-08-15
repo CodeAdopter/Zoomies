@@ -505,9 +505,9 @@ internal static class Pruning
     private static void UpdateCorrectionHistory(SearchState state, Position position, int depth, int diff)
     {
         int weight = Math.Min(depth + 1, Tune.CorrWeightCap);
-        ref int entry = ref state.PawnCorrectionHistory[CorrectionIndex(position)];
+        ref short entry = ref state.PawnCorrectionHistory[CorrectionIndex(position)];
         long value = ((long)entry * (CorrectionWeight - weight) + (long)diff * CorrectionGrain * weight) / CorrectionWeight;
-        entry = (int)Math.Clamp(value, -CorrectionMax, CorrectionMax);
+        entry = (short)Math.Clamp(value, -CorrectionMax, CorrectionMax);
     }
 
     private static int CorrectionIndex(Position position) =>

@@ -8,10 +8,10 @@ internal static class Order
     [SkipLocalsInit]
     public static int TacticalMoves(Position position, Span<Move> moves)
     {
-        Span<int> scores = stackalloc int[16];
+        Span<int> scores = stackalloc int[256];
         int tacticalMoveCount = 0;
 
-        for (int i = 0; i < moves.Length && tacticalMoveCount < 16; i++)
+        for (int i = 0; i < moves.Length; i++)
         {
             Move move = moves[i];
             if (!move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0)

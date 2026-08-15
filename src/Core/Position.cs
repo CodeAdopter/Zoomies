@@ -49,7 +49,7 @@ public class Position
 
     public int WhiteEvaluation => whiteEvaluation;
 
-    public readonly UndoInfo[] History = new UndoInfo[2048];
+    public readonly UndoInfo[] History = new UndoInfo[4096];
 
     public ulong Checkers { get; internal set; }
 

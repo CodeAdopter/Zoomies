@@ -302,7 +302,6 @@ public static class Tables
         return attacks ^ BishopAttacks(square, occupancy ^ blockers);
     }
 
-    public static readonly ulong[][] SquaresBetweenBySquare = new ulong[64][];
     public static readonly ulong[] SquaresBetween = new ulong[64 * 64];
 
     private static void InitializeSquaresBetween()
@@ -310,39 +309,32 @@ public static class Tables
         ulong sqs;
         for (Square sq1 = Square.a1; sq1 <= Square.h8; sq1++)
         {
-            SquaresBetweenBySquare[(int)sq1] = new ulong[64];
             for (Square sq2 = Square.a1; sq2 <= Square.h8; sq2++)
             {
                 sqs = Bitboard.SquareMask(sq1) | Bitboard.SquareMask(sq2);
                 if (Types.FileOf(sq1) == Types.FileOf(sq2) || Types.RankOf(sq1) == Types.RankOf(sq2))
-                    SquaresBetweenBySquare[(int)sq1][(int)sq2] =
                     SquaresBetween[((int)sq1 << 6) | (int)sq2] =
                         CalculateRookAttacks(sq1, sqs) & CalculateRookAttacks(sq2, sqs);
                 else if (Types.DiagonalOf(sq1) == Types.DiagonalOf(sq2) || Types.AntiDiagonalOf(sq1) == Types.AntiDiagonalOf(sq2))
-                    SquaresBetweenBySquare[(int)sq1][(int)sq2] =
                     SquaresBetween[((int)sq1 << 6) | (int)sq2] =
                         CalculateBishopAttacks(sq1, sqs) & CalculateBishopAttacks(sq2, sqs);
             }
         }
     }
 
-    public static readonly ulong[][] LinesBySquare = new ulong[64][];
     public static readonly ulong[] LineMasks = new ulong[64 * 64];
 
     private static void InitializeLines()
     {
         for (Square sq1 = Square.a1; sq1 <= Square.h8; sq1++)
         {
-            LinesBySquare[(int)sq1] = new ulong[64];
             for (Square sq2 = Square.a1; sq2 <= Square.h8; sq2++)
             {
                 if (Types.FileOf(sq1) == Types.FileOf(sq2) || Types.RankOf(sq1) == Types.RankOf(sq2))
-                    LinesBySquare[(int)sq1][(int)sq2] =
                     LineMasks[((int)sq1 << 6) | (int)sq2] =
                         CalculateRookAttacks(sq1, 0) & CalculateRookAttacks(sq2, 0)
                         | Bitboard.SquareMask(sq1) | Bitboard.SquareMask(sq2);
                 else if (Types.DiagonalOf(sq1) == Types.DiagonalOf(sq2) || Types.AntiDiagonalOf(sq1) == Types.AntiDiagonalOf(sq2))
-                    LinesBySquare[(int)sq1][(int)sq2] =
                     LineMasks[((int)sq1 << 6) | (int)sq2] =
                         CalculateBishopAttacks(sq1, 0) & CalculateBishopAttacks(sq2, 0)
                         | Bitboard.SquareMask(sq1) | Bitboard.SquareMask(sq2);

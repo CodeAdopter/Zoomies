@@ -131,13 +131,6 @@ public readonly struct Move
     public Move(Square from, Square to, MoveFlags flags) =>
         move = (ushort)(((int)flags << 12) | ((int)from << 6) | (int)to);
 
-    public Move(string moveStr)
-    {
-        var from = Types.CreateSquare((File)(moveStr[0] - 'a'), (Rank)(moveStr[1] - '1'));
-        var to = Types.CreateSquare((File)(moveStr[2] - 'a'), (Rank)(moveStr[3] - '1'));
-        move = (ushort)(((int)from << 6) | (int)to);
-    }
-
     public readonly Square To => (Square)(move & 0x3f);
 
     public readonly Square From => (Square)((move >> 6) & 0x3f);

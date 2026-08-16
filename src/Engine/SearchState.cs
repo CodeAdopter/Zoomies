@@ -35,6 +35,7 @@ public sealed class SearchState
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
     public readonly short[] ContinuationHistory1 = new short[PieceToCount * PieceToCount];
     public readonly short[] ContinuationHistory2 = new short[PieceToCount * PieceToCount];
+    public readonly short[] CaptureHistory = new short[PieceToCount * 8];
     public readonly short[] PawnCorrectionHistory = new short[2 * CorrectionHistorySize];
     public readonly int[] PlayedPieceTo = new int[MaximumPly]; // -1 = none (root/null move)
     public readonly int[] StaticEvalStack = new int[MaximumPly];
@@ -82,6 +83,7 @@ public sealed class SearchState
         Array.Clear(QuietHistory, 0, QuietHistory.Length);
         Array.Clear(ContinuationHistory1, 0, ContinuationHistory1.Length);
         Array.Clear(ContinuationHistory2, 0, ContinuationHistory2.Length);
+        Array.Clear(CaptureHistory, 0, CaptureHistory.Length);
         Array.Clear(PawnCorrectionHistory, 0, PawnCorrectionHistory.Length);
     }
 

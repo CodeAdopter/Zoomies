@@ -29,6 +29,7 @@ public sealed class SearchState
     public int DoubleExtensionPath;
     public const int PieceToCount = 14 * 64;
     public const int CorrectionHistorySize = 16384;
+    public const int PawnHistorySize = 512;
     public const int NoStaticEval = int.MinValue / 2;
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
@@ -36,6 +37,7 @@ public sealed class SearchState
     public readonly short[] ContinuationHistory1 = new short[PieceToCount * PieceToCount];
     public readonly short[] ContinuationHistory2 = new short[PieceToCount * PieceToCount];
     public readonly short[] CaptureHistory = new short[PieceToCount * 8];
+    public readonly short[] PawnHistory = new short[PawnHistorySize * PieceToCount];
     public readonly short[] PawnCorrectionHistory = new short[2 * CorrectionHistorySize];
     public readonly int[] PlayedPieceTo = new int[MaximumPly]; // -1 = none (root/null move)
     public readonly int[] StaticEvalStack = new int[MaximumPly];
@@ -84,6 +86,7 @@ public sealed class SearchState
         Array.Clear(ContinuationHistory1, 0, ContinuationHistory1.Length);
         Array.Clear(ContinuationHistory2, 0, ContinuationHistory2.Length);
         Array.Clear(CaptureHistory, 0, CaptureHistory.Length);
+        Array.Clear(PawnHistory, 0, PawnHistory.Length);
         Array.Clear(PawnCorrectionHistory, 0, PawnCorrectionHistory.Length);
     }
 

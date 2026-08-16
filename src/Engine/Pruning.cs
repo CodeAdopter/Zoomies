@@ -163,7 +163,8 @@ internal static class Pruning
         int tacticalMoveEnd = fixedMoveCount +
             Order.TacticalMoves(
                 position,
-                moves[fixedMoveCount..moveCount]);
+                moves[fixedMoveCount..moveCount],
+                state.CaptureHistory);
 
         int quietStart = tacticalMoveEnd;
         for (int killerIndex = 0;
@@ -197,6 +198,8 @@ internal static class Pruning
 
         Span<Move> triedQuiets = stackalloc Move[64];
         int triedQuietCount = 0;
+        Span<Move> triedNoisy = stackalloc Move[64];
+        int triedNoisyCount = 0;
 
         for (int i = 0; i < moveCount; i++)
         {
@@ -320,6 +323,8 @@ internal static class Pruning
 
             if (isQuiet && triedQuietCount < triedQuiets.Length)
                 triedQuiets[triedQuietCount++] = move;
+            else if (!isQuiet && triedNoisyCount < triedNoisy.Length)
+                triedNoisy[triedNoisyCount++] = move;
 
             long rootNodesBefore = ply == 0 ? state.NodeCount : 0;
             state.PlayedPieceTo[ply] = ((int)position.At(move.From) << 6) | (int)move.To;
@@ -381,6 +386,9 @@ internal static class Pruning
 
             if (!excludedSearch)
             {
+                UpdateCaptureHistories(
+                    state, position, move, isQuiet,
+                    triedNoisy[..triedNoisyCount], depth);
                 if (isQuiet)
                 {
                     UpdateQuietHistories(
@@ -472,6 +480,19 @@ internal static class Pruning
 
     private static int HistoryBonus(int depth) =>
         Math.Min(Tune.HistBonusCap, Tune.HistBonusQuad * depth * depth + Tune.HistBonusLin * depth + 16);
+
+    // capture history
+    private static void UpdateCaptureHistories(
+        SearchState state, Position position, Move cutoffMove, bool cutoffQuiet,
+        ReadOnlySpan<Move> triedNoisy, int depth)
+    {
+        int bonus = HistoryBonus(depth);
+        if (!cutoffQuiet)
+            Gravity(ref state.CaptureHistory[Order.CaptureHistoryIndex(position, cutoffMove)], bonus);
+        foreach (Move tried in triedNoisy)
+            if (tried != cutoffMove)
+                Gravity(ref state.CaptureHistory[Order.CaptureHistoryIndex(position, tried)], -bonus);
+    }
 
     private static void UpdateQuietHistory(
         SearchState state, Position position, Color side, Move move, int bonus, int previous1, int previous2)

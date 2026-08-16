@@ -6,7 +6,7 @@ namespace Zoomies.Engine;
 internal static class Order
 {
     [SkipLocalsInit]
-    public static int TacticalMoves(Position position, Span<Move> moves)
+    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory = null)
     {
         Span<int> scores = stackalloc int[256];
         int tacticalMoveCount = 0;
@@ -22,6 +22,8 @@ internal static class Order
                 + ((move.Flags & MoveFlags.Promotions) != 0
                     ? Eval.PieceValue[(int)PieceType.Queen]
                     : 0);
+            if (captureHistory != null)
+                score += captureHistory[CaptureHistoryIndex(position, move)];
 
             (moves[i], moves[tacticalMoveCount]) =
                 (moves[tacticalMoveCount], moves[i]);
@@ -52,4 +54,13 @@ internal static class Order
         piece == Piece.NoPiece
             ? Eval.PieceValue[(int)PieceType.Pawn]
             : Eval.PieceValue[(int)Types.TypeOf(piece)];
+
+    internal static int CaptureHistoryIndex(Position position, Move move)
+    {
+        int bucket = move.Flags == MoveFlags.EnPassant 
+            ? (int)PieceType.Pawn
+            : move.IsCapture ? (int)Types.TypeOf(position.At(move.To))
+            : 6;
+        return ((((int)position.At(move.From)) << 6) | (int)move.To) * 8 + bucket;
+    }
 }

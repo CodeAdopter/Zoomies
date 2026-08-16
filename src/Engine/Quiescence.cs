@@ -102,7 +102,7 @@ internal static class Quiescence
         if (moveCount == 0)
             return inCheck ? -Eval.MateValue + ply : bestScore;
 
-        Order.TacticalMoves(position, moves[..moveCount]);
+        Order.TacticalMoves(position, moves[..moveCount], state.CaptureHistory);
 
         // search the TT move first when it is present in the list
         if (ttMove.EncodedValue != 0)

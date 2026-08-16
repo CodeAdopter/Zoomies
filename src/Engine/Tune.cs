@@ -64,6 +64,13 @@ internal static class Tune
     public static readonly int LmrDiv = P("ZT_LMR_DIV", 271);                   // log-log divisor, /100
     public static readonly int LmrHistDiv = P("ZT_LMR_HISTDIV", 8373);          // history per reduction step
     public static readonly int DoDeeperMargin = P("ZT_DODEEPER", 50);           // re-search deeper
+    // adaptive reduction inputs
+    public static readonly int LmrTtPv = P("ZT_LMR_TTPV", 1);                   // reduce less on ttPv nodes
+    public static readonly int LmrImp = P("ZT_LMR_IMP", 1);                     // reduce less when improving
+    public static readonly int LmrNonImp = P("ZT_LMR_NONIMP", 1);               // reduce more when not improving
+    public static readonly int LmrCutNode = P("ZT_LMR_CUTNODE", 1);             // reduce more on cut nodes
+    public static readonly int LmrTtCapture = P("ZT_LMR_TTCAP", 1);             // reduce more when TT move captures
+    public static readonly int LmrGivesCheck = P("ZT_LMR_CHECK", 1);            // reduce less for checking moves
 
     // ===========================================================================
     // internal iterative reduction

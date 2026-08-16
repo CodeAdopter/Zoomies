@@ -201,10 +201,11 @@ internal static class Pruning
 
         int previous1 = ply >= 1 ? state.PlayedPieceTo[ply - 1] : -1;
         int previous2 = ply >= 2 ? state.PlayedPieceTo[ply - 2] : -1;
+        int pawnHistoryBase = PawnHistoryBase(position);
 
         Span<int> quietScores = stackalloc int[256];
         for (int i = quietStart; i < moveCount; i++)
-            quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2);
+            quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2, pawnHistoryBase);
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
         Move bestMove = default;
@@ -412,7 +413,7 @@ internal static class Pruning
                 {
                     UpdateQuietHistories(
                         state, position, sideToMove, move,
-                        triedQuiets[..triedQuietCount], depth, previous1, previous2);
+                        triedQuiets[..triedQuietCount], depth, previous1, previous2, pawnHistoryBase);
                     if (state.KillerMoves[ply, 0] != move)
                     {
                         state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
@@ -423,7 +424,7 @@ internal static class Pruning
                 {
                     PenalizeQuiets(
                         state, position, sideToMove, default,
-                        triedQuiets[..triedQuietCount], depth, previous1, previous2);
+                        triedQuiets[..triedQuietCount], depth, previous1, previous2, pawnHistoryBase);
                 }
             }
             break;
@@ -463,11 +464,18 @@ internal static class Pruning
     private static int PieceToIndex(Position position, Move move) =>
         ((int)position.At(move.From) << 6) | (int)move.To;
 
+    private static int PawnHistoryBase(Position position)
+    {
+        ulong pawns = MixKey(MixKey(position.BitboardOf(Color.White, PieceType.Pawn)) ^ position.BitboardOf(Color.Black, PieceType.Pawn));
+        return (int)(pawns & (SearchState.PawnHistorySize - 1)) * SearchState.PieceToCount;
+    }
+
     private static int QuietHistoryScore(
-        SearchState state, Position position, Color side, Move move, int previous1, int previous2)
+        SearchState state, Position position, Color side, Move move, int previous1, int previous2, int pawnHistoryBase)
     {
         int pieceTo = PieceToIndex(position, move);
         int score = state.QuietHistory[HistoryIndex(side, move)];
+        score += state.PawnHistory[pawnHistoryBase + pieceTo];
         if (previous1 >= 0)
             score += state.ContinuationHistory1[previous1 * SearchState.PieceToCount + pieceTo];
         if (previous2 >= 0)
@@ -477,24 +485,24 @@ internal static class Pruning
 
     private static void UpdateQuietHistories(
         SearchState state, Position position, Color side, Move cutoffMove,
-        ReadOnlySpan<Move> triedQuiets, int depth, int previous1, int previous2)
+        ReadOnlySpan<Move> triedQuiets, int depth, int previous1, int previous2, int pawnHistoryBase)
     {
         int bonus = HistoryBonus(depth);
 
-        UpdateQuietHistory(state, position, side, cutoffMove, bonus, previous1, previous2);
-        PenalizeQuiets(state, position, side, cutoffMove, triedQuiets, depth, previous1, previous2);
+        UpdateQuietHistory(state, position, side, cutoffMove, bonus, previous1, previous2, pawnHistoryBase);
+        PenalizeQuiets(state, position, side, cutoffMove, triedQuiets, depth, previous1, previous2, pawnHistoryBase);
     }
 
     // penalize quiet moves searched before the cutoff
     // also do this if the cutoff move is a capture or promotion
     private static void PenalizeQuiets(
         SearchState state, Position position, Color side, Move cutoffMove,
-        ReadOnlySpan<Move> triedQuiets, int depth, int previous1, int previous2)
+        ReadOnlySpan<Move> triedQuiets, int depth, int previous1, int previous2, int pawnHistoryBase)
     {
         int malus = -HistoryBonus(depth);
         foreach (Move tried in triedQuiets)
             if (tried != cutoffMove)
-                UpdateQuietHistory(state, position, side, tried, malus, previous1, previous2);
+                UpdateQuietHistory(state, position, side, tried, malus, previous1, previous2, pawnHistoryBase);
     }
 
     private static int HistoryBonus(int depth) =>
@@ -514,10 +522,11 @@ internal static class Pruning
     }
 
     private static void UpdateQuietHistory(
-        SearchState state, Position position, Color side, Move move, int bonus, int previous1, int previous2)
+        SearchState state, Position position, Color side, Move move, int bonus, int previous1, int previous2, int pawnHistoryBase)
     {
         int pieceTo = PieceToIndex(position, move);
         Gravity(ref state.QuietHistory[HistoryIndex(side, move)], bonus);
+        Gravity(ref state.PawnHistory[pawnHistoryBase + pieceTo], bonus);
         if (previous1 >= 0)
             Gravity(ref state.ContinuationHistory1[previous1 * SearchState.PieceToCount + pieceTo], bonus);
         if (previous2 >= 0)

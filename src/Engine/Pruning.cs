@@ -160,6 +160,8 @@ internal static class Pruning
         if (hashMove.EncodedValue == 0 && ply == 0)
             hashMove = state.PrincipalVariationMove;
 
+        bool ttCapture = hashMove.EncodedValue != 0 && hashMove.IsCapture;
+
         int fixedMoveCount = 0;
         if (hashMove.EncodedValue != 0)
         {
@@ -361,11 +363,16 @@ internal static class Pruning
                     move != state.KillerMoves[ply, 0] &&
                     move != state.KillerMoves[ply, 1])
                 {
+                    bool givesCheck = position.InCheck(position.Turn);
+
+                    // adaptive lmr
                     int rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
-                    if (ttPv) rr--;
-                    rr += improving ? -1 : 1;
-                    if (cutNode) rr++;
-                    if (i >= quietStart) rr -= quietScores[i] / Tune.LmrHistDiv;
+                    if (ttPv) rr -= Tune.LmrTtPv;
+                    rr += improving ? -Tune.LmrImp : Tune.LmrNonImp;
+                    if (cutNode) rr += Tune.LmrCutNode;
+                    if (ttCapture) rr += Tune.LmrTtCapture;
+                    if (givesCheck) rr -= Tune.LmrGivesCheck;
+                    rr -= quietScores[i] / Tune.LmrHistDiv;
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);
                 }

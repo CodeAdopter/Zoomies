@@ -119,6 +119,18 @@ internal static class Pruning
             pruneEval - (Tune.RfpBase + (improving ? Tune.RfpImp : -Tune.RfpNonImp)) * depth >= beta)
                 return pruneEval;
 
+        // razoring
+        if (ply > 0 &&
+            !inCheck &&
+            depth <= 4 &&
+            beta - alpha == 1 &&
+            alpha > -Eval.MateBound &&
+            pruneEval + 240 + 200 * depth <= alpha)
+        {
+            int razorScore = Quiescence.Search(state, position, alpha, beta, ply);
+            if (razorScore <= alpha) return razorScore;
+        }
+
         // null move pruning
         if (allowNullMove &&
             !excludedSearch &&

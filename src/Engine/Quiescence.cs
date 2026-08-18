@@ -99,21 +99,23 @@ internal static class Quiescence
                 ? position.GenerateCapturesFast<White>(moves)
                 : position.GenerateCapturesFast<Black>(moves);
 
-        if (moveCount == 0)
-            return inCheck ? -Eval.MateValue + ply : bestScore;
-
-        Order.TacticalMoves(position, moves[..moveCount], state.CaptureHistory);
+        if (moveCount == 0 && inCheck)
+            return -Eval.MateValue + ply;
 
         // search the TT move first when it is present in the list
+        int fixedMoveCount = 0;
         if (ttMove.EncodedValue != 0)
         {
             for (int i = 0; i < moveCount; i++)
             {
                 if (moves[i] != ttMove) continue;
                 (moves[0], moves[i]) = (moves[i], moves[0]);
+                fixedMoveCount = 1;
                 break;
             }
         }
+        // sort the remaining tactical moves
+        Order.TacticalMoves(position, moves[fixedMoveCount..moveCount], state.CaptureHistory);
 
         Color sideToMove = position.Turn;
 

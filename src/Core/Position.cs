@@ -678,7 +678,6 @@ public class Position
 
         for (int i = gamePly - 2; i >= 0; i -= 2)
         {
-            if (i < 0) break;
             if (History[i].Hash == hash) return true;
             if (History[i].HalfMoveClock == 0) break;
         }

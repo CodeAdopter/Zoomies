@@ -20,7 +20,7 @@ internal static class Order
             int victimValue = move.IsCapture ? PieceTypeValue(position.At(move.To)) : 0;
             int score = victimValue * 16 - PieceTypeValue(position.At(move.From))
                 + ((move.Flags & MoveFlags.Promotions) != 0
-                    ? Eval.PieceValue[(int)PieceType.Queen]
+                    ? Eval.PieceValue[((int)move.Flags & 0b11) + 1]
                     : 0);
             if (captureHistory != null)
                 score += captureHistory[CaptureHistoryIndex(position, move)];

@@ -121,6 +121,7 @@ public sealed class Search
             ThreadResult solo = RunIterativeDeepening(state, position, in limits, 0, isMain: true);
             state.StopRequested = false;
             PublishStats(solo);
+            state.Stats.PrintReport(state, SuppressOutput);
             return solo.BestMove;
         }
 
@@ -177,6 +178,7 @@ public sealed class Search
         }
 
         PublishStats(mainResult, best);
+        state.Stats.PrintReport(state, SuppressOutput);
         return best.BestMove;
     }
 
@@ -244,15 +246,25 @@ public sealed class Search
             }
 
             int score;
+            int aspirationFailHighs = 0;
+            int aspirationFailLows = 0;
             while (true)
             {
                 score = Pruning.AlphaBeta(st, position, depth, alpha, beta, 0);
                 if (st.StopRequested) break;
 
                 if (score <= alpha)
+                {
                     alpha = Math.Max(score - delta, -SearchState.Infinity);
+                    aspirationFailLows++;
+                    st.Stats.AspFailLow();
+                }
                 else if (score >= beta)
+                {
                     beta = Math.Min(score + delta, SearchState.Infinity);
+                    aspirationFailHighs++;
+                    st.Stats.AspFailHigh();
+                }
                 else
                     break;
 
@@ -266,6 +278,10 @@ public sealed class Search
 
             long iterationNodes = Math.Max(1, st.NodeCount - iterationStartNodes);
             int effortPercent = (int)(100 * st.BestMoveEffortNodes / iterationNodes);
+            st.Stats.RecordIteration(
+                depth, st.NodeCount - iterationStartNodes, st.NodeCount,
+                st.Clock.ElapsedMilliseconds, score, st.SelectiveDepth,
+                aspirationFailHighs, aspirationFailLows);
 
             if (isMain && !SuppressOutput)
             {

@@ -43,6 +43,7 @@ public sealed class SearchState
     public readonly int[] StaticEvalStack = new int[MaximumPly];
 
     public readonly Stopwatch Clock = new();
+    public readonly SearchStats Stats = new();
     public readonly TranspositionTable Tt;
     public SearchState() => Tt = new(16);
     public SearchState(TranspositionTable sharedTt) => Tt = sharedTt;
@@ -50,6 +51,7 @@ public sealed class SearchState
     public void Reset(in SearchLimits limits, bool bumpTtGeneration = true)
     {
         if (bumpTtGeneration) Tt.NewSearch();
+        Stats.Reset();
         NodeCount = 0;
         QuiescenceNodeCount = 0;
         EvaluationCount = 0;

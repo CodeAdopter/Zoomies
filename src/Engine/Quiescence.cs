@@ -21,16 +21,20 @@ internal static class Quiescence
 
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
+        state.Stats.QTtProbe(ttHit);
         int ttScore = ttHit ? TranspositionTable.ScoreFromTt(ttEntry.Score, ply) : 0;
         if (ttHit && beta - alpha <= 1)
         {
             switch (ttEntry.Flag)
             {
                 case TtFlag.Exact:
+                    state.Stats.QTtCutoff();
                     return ttScore;
                 case TtFlag.Lower when ttScore >= beta:
+                    state.Stats.QTtCutoff();
                     return ttScore;
                 case TtFlag.Upper when ttScore <= alpha:
+                    state.Stats.QTtCutoff();
                     return ttScore;
             }
         }
@@ -57,6 +61,7 @@ internal static class Quiescence
             bestScore = standingPatScore;
             if (standingPatScore >= beta)
             {
+                state.Stats.QStandPatCutoff();
                 state.Tt.Store(key, 0, TranspositionTable.ScoreToTt(standingPatScore, ply), 0, TtFlag.Lower, ttPv);
                 return standingPatScore;
             }
@@ -83,7 +88,10 @@ internal static class Quiescence
                 }
 
                 if (standingPatScore + maxGain + Tune.DeltaMargin <= alpha)
+                {
+                    state.Stats.QDeltaPrune();
                     return standingPatScore;
+                }
             }
         }
         else if (ply >= SearchState.MaximumPly - 1)
@@ -101,6 +109,7 @@ internal static class Quiescence
 
         if (moveCount == 0 && inCheck)
             return -Eval.MateValue + ply;
+        state.Stats.QGeneratedMoves(moveCount);
 
         // search the TT move first when it is present in the list
         int fixedMoveCount = 0;
@@ -118,6 +127,7 @@ internal static class Quiescence
         Order.TacticalMoves(position, moves[fixedMoveCount..moveCount], state.CaptureHistory);
 
         Color sideToMove = position.Turn;
+        int searchedMoves = 0;
 
         for (int i = 0; i < moveCount; i++)
         {
@@ -142,12 +152,18 @@ internal static class Quiescence
                     }
 
                     if (standingPatScore + gain + Tune.DeltaMargin <= alpha)
+                    {
+                        state.Stats.QDeltaPrune();
                         continue;
+                    }
                 }
 
                 // prune losing captures
                 if (!See.Ge(position, move))
+                {
+                    state.Stats.QSeePrune();
                     continue;
+                }
             }
             else if (bestScore > -Eval.MateBound)
             {
@@ -157,7 +173,10 @@ internal static class Quiescence
 
                 // prune capture evasions that lose material
                 if (move.IsCapture && !See.Ge(position, move))
+                {
+                    state.Stats.QSeePrune();
                     continue;
+                }
             }
 
             position.Play(sideToMove, move);
@@ -168,6 +187,8 @@ internal static class Quiescence
                 continue;
             }
 
+            searchedMoves++;
+            state.Stats.QMoveSearched();
             int score = -Search(state, position, -beta, -alpha, ply + 1);
             position.Undo(sideToMove, move);
 
@@ -179,6 +200,7 @@ internal static class Quiescence
             }
             if (score >= beta)
             {
+                state.Stats.QBetaCutoff(searchedMoves);
                 state.Tt.Store(key, move.EncodedValue, TranspositionTable.ScoreToTt(score, ply), 0, TtFlag.Lower, ttPv);
                 return score;
             }

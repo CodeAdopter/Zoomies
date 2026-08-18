@@ -109,4 +109,11 @@ internal static class Tune
     // quiescence delta pruning
     // ===========================================================================
     public static readonly int DeltaMargin = P("ZT_DELTA_MARGIN", 303);         // margin over stand-pat + gain
+
+    // ===========================================================================
+    // time management
+    // ===========================================================================
+    public static readonly int TmScoreDropMargin = P("ZT_TM_SDROP_MARGIN", 8);  // cp of drop tolerated margin
+    public static readonly int TmScoreDropSlope = P("ZT_TM_SDROP_SLOPE", 2);    // scale % per cp beyond margin
+    public static readonly int TmScoreDropMax = P("ZT_TM_SDROP_MAX", 180);      // cap on the score drop factor
 }

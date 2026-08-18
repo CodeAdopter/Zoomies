@@ -34,6 +34,7 @@ public sealed class Search
     private const int EffortLowScale = 135;
     private const int SoftScaleFloor = 40;
     private const int SoftScaleCeiling = 300;
+    private const int ScoreDropMinDepth = 6;
 
     private static int[] BuildStabilityScale()
     {
@@ -263,6 +264,7 @@ public sealed class Search
             }
             if (st.StopRequested && depth > 1) break;
 
+            int previousScore = lastScore;
             lastScore = score;
             completedDepth = depth;
 
@@ -304,8 +306,17 @@ public sealed class Search
                     : effortPercent >= EffortMediumThreshold ? EffortMediumScale
                     : effortPercent <= EffortLowThreshold ? EffortLowScale
                     : 100;
+
+            // when the root score drops from the previous depth
+            // the best move may be refuted at the next depth
+            // so extend the soft limit
+            int scoreDropScale = 100;
+            if (depth >= ScoreDropMinDepth)
+                scoreDropScale = Math.Clamp(
+                    100 + (previousScore - score - Tune.TmScoreDropMargin) * Tune.TmScoreDropSlope,
+                    100, Tune.TmScoreDropMax);
             long combinedScale = Math.Clamp(
-                StabilityScale[stability] * effortScale / 100,
+                StabilityScale[stability] * effortScale * scoreDropScale / 10000,
                 SoftScaleFloor, SoftScaleCeiling);
             long softLimit = st.HasSoftLimit
                 ? st.SoftTimeLimitMilliseconds * combinedScale / 100

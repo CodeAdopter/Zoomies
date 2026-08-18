@@ -18,6 +18,7 @@ internal static class Pruning
     private static readonly int DoubleExtensionLimit = Tune.DoubleExtensionLimit;
     private static readonly int QuietSeeMaxDepth = Tune.QuietSeeMaxDepth;
     private static readonly int QuietSeeMargin = Tune.QuietSeeMargin;
+    private static readonly bool DemoteBadCaptures = Tune.BadCapDemote != 0;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -178,8 +179,12 @@ internal static class Pruning
             Order.TacticalMoves(
                 position,
                 moves[fixedMoveCount..moveCount],
-                state.CaptureHistory);
+                state.CaptureHistory,
+                DemoteBadCaptures,
+                out int badCaptureCount);
 
+        // SEE-losing captures are ordered after quiets
+        int quietEnd = moveCount - badCaptureCount;
         int quietStart = tacticalMoveEnd;
         for (int killerIndex = 0;
             killerIndex < 2 && quietStart < moveCount;
@@ -188,7 +193,7 @@ internal static class Pruning
             Move killer = state.KillerMoves[ply, killerIndex];
             if (killer.EncodedValue == 0) continue;
 
-            for (int i = quietStart; i < moveCount; i++)
+            for (int i = quietStart; i < quietEnd; i++)
             {
                 if (moves[i] != killer) continue;
                 (moves[quietStart], moves[i]) = (moves[i], moves[quietStart]);
@@ -204,7 +209,7 @@ internal static class Pruning
         int pawnHistoryBase = PawnHistoryBase(position);
 
         Span<int> quietScores = stackalloc int[256];
-        for (int i = quietStart; i < moveCount; i++)
+        for (int i = quietStart; i < quietEnd; i++)
             quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2, pawnHistoryBase);
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
@@ -218,10 +223,10 @@ internal static class Pruning
 
         for (int i = 0; i < moveCount; i++)
         {
-            if (i >= quietStart)
+            if (i >= quietStart && i < quietEnd)
             {
                 int best = i;
-                for (int j = i + 1; j < moveCount; j++)
+                for (int j = i + 1; j < quietEnd; j++)
                     if (quietScores[j] > quietScores[best]) best = j;
                 if (best != i)
                 {
@@ -241,14 +246,18 @@ internal static class Pruning
             if (excludedSearch && move == excluded) continue;
             bool isQuiet = !move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0;
 
-            // late move pruning: after enough quiet moves have been searched at low depth
-            // skip the rest: tactical moves don't count toward the quiet move limit
+            // late move pruning
             if (!isPv &&
                 !inCheck &&
                 bestScore > -Eval.MateBound &&
                 depth <= LmpMaxDepth &&
+                i < quietEnd &&
                 i >= quietStart + LmpBudget(depth, improving))
-                break;
+            {
+                if (quietEnd == moveCount) break;
+                i = quietEnd - 1;
+                continue;
+            }
 
             // futility pruning
             if (bestScore > -SearchState.Infinity &&

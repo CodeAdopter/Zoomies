@@ -58,6 +58,11 @@ internal static class Tune
     public static readonly int LmpNonImp = P("ZT_LMP_NONIMP", 1);               // fewer quiets when not improving
 
     // ===========================================================================
+    // move ordering
+    // ===========================================================================
+    public static readonly int BadCapDemote = P("ZT_BADCAP_DEMOTE", 1);         // order SEE losing captures after quiets
+
+    // ===========================================================================
     // late move reductions
     // ===========================================================================
     public static readonly int LmrBase = P("ZT_LMR_BASE", 56);                  // table base, /100

@@ -61,16 +61,20 @@ internal static class Pruning
 
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
+        state.Stats.TtProbe(ttHit, ttHit && ttEntry.Move != 0);
         int ttScore = ttHit ? TranspositionTable.ScoreFromTt(ttEntry.Score, ply) : 0;
         if (ttHit && ply > 0 && beta - alpha == 1 && !excludedSearch && ttEntry.Depth >= depth)
         {
             switch (ttEntry.Flag)
             {
                 case TtFlag.Exact:
+                    state.Stats.TtCutoff();
                     return ttScore;
                 case TtFlag.Lower when ttScore >= beta:
+                    state.Stats.TtCutoff();
                     return ttScore;
                 case TtFlag.Upper when ttScore <= alpha:
+                    state.Stats.TtCutoff();
                     return ttScore;
             }
         }
@@ -79,11 +83,16 @@ internal static class Pruning
         bool ttPv = beta - alpha > 1 || (ttHit && ttEntry.WasPv);
 
         // check extensions
-        if (inCheck) depth++;
+        if (inCheck)
+        {
+            state.Stats.CheckExtension();
+            depth++;
+        }
 
         // internal iterative reduction
         if (ply > 0 && depth >= Tune.IirMinDepth && !inCheck && (!ttHit || ttEntry.Move == 0))
         {
+            state.Stats.IirReduction();
             depth--;
             if (cutNode) depth--;
         }
@@ -92,6 +101,7 @@ internal static class Pruning
             return Quiescence.Search(state, position, alpha, beta, ply);
 
         state.NodeCount++;
+        state.Stats.InteriorNode();
         if (ply > state.SelectiveDepth) state.SelectiveDepth = ply;
 
         int staticEval = inCheck ? 0 : CorrectEval(state, position, Eval.Evaluate(position));
@@ -118,7 +128,10 @@ internal static class Pruning
             depth <= Tune.RfpMaxDepth &&
             beta < Eval.MateBound &&
             pruneEval - (Tune.RfpBase + (improving ? Tune.RfpImp : -Tune.RfpNonImp)) * depth >= beta)
-                return pruneEval;
+        {
+            state.Stats.RfpCutoff();
+            return pruneEval;
+        }
 
         // razoring
         if (ply > 0 &&
@@ -128,8 +141,13 @@ internal static class Pruning
             alpha > -Eval.MateBound &&
             pruneEval + 240 + 200 * depth <= alpha)
         {
+            state.Stats.RazorTry();
             int razorScore = Quiescence.Search(state, position, alpha, beta, ply);
-            if (razorScore <= alpha) return razorScore;
+            if (razorScore <= alpha)
+            {
+                state.Stats.RazorCutoff();
+                return razorScore;
+            }
         }
 
         // null move pruning
@@ -142,6 +160,7 @@ internal static class Pruning
             HasNonPawnMaterial(position, position.Turn) &&
             pruneEval >= beta)
         {
+            state.Stats.NmpTry();
             int reduction = Tune.NmpBase + depth / Tune.NmpDiv;
             state.PlayedPieceTo[ply] = -1;
             position.MakeNullMove();
@@ -149,13 +168,18 @@ internal static class Pruning
             position.UnmakeNullMove();
 
             if (state.StopRequested) return 0;
-            if (nullScore >= beta) return nullScore >= Eval.MateBound ? beta : nullScore;
+            if (nullScore >= beta)
+            {
+                state.Stats.NmpCutoff();
+                return nullScore >= Eval.MateBound ? beta : nullScore;
+            }
         }
 
         Span<Move> moves = stackalloc Move[256];
         int moveCount = Engine.Search.GenerateLegalMoves(position, moves);
         if (moveCount == 0)
             return inCheck ? -Eval.MateValue + ply : 0;
+        state.Stats.GeneratedMoves(moveCount);
 
         Move hashMove = ttHit ? new Move(ttEntry.Move) : default;
         if (hashMove.EncodedValue == 0 && ply == 0)
@@ -220,6 +244,7 @@ internal static class Pruning
         int triedQuietCount = 0;
         Span<Move> triedNoisy = stackalloc Move[64];
         int triedNoisyCount = 0;
+        int searchedMoves = 0;
 
         for (int i = 0; i < moveCount; i++)
         {
@@ -254,7 +279,12 @@ internal static class Pruning
                 i < quietEnd &&
                 i >= quietStart + LmpBudget(depth, improving))
             {
-                if (quietEnd == moveCount) break;
+                if (quietEnd == moveCount)
+                {
+                    state.Stats.LmpSkip(moveCount - i);
+                    break;
+                }
+                state.Stats.LmpSkip(quietEnd - i);
                 i = quietEnd - 1;
                 continue;
             }
@@ -266,7 +296,10 @@ internal static class Pruning
                 isQuiet &&
                 alpha > -Eval.MateBound &&
                 pruneEval + Tune.FutBase + Tune.FutSlope * depth + (improving ? Tune.FutImp : -Tune.FutNonImp) <= alpha)
+            {
+                state.Stats.FutilityPrune();
                 continue;
+            }
 
             // history pruning: skip quiets with very poor history at low depth
             if (bestScore > -SearchState.Infinity &&
@@ -276,14 +309,20 @@ internal static class Pruning
                 i >= quietStart &&
                 alpha > -Eval.MateBound &&
                 quietScores[i] < -Tune.HistPruneMult * depth)
+            {
+                state.Stats.HistoryPrune();
                 continue;
+            }
 
             // SEE pruning: skip captures losing too much material at low depth
             if (bestScore > -SearchState.Infinity &&
                 depth <= Tune.SeePruneMaxDepth &&
                 move.IsCapture &&
                 !See.Ge(position, move, -Tune.SeePruneMult * depth))
+            {
+                state.Stats.SeePrune();
                 continue;
+            }
 
             // quiet SEE pruning
             if (bestScore > -Eval.MateBound &&
@@ -292,7 +331,10 @@ internal static class Pruning
                 depth <= QuietSeeMaxDepth &&
                 isQuiet &&
                 !See.Ge(position, move, -QuietSeeMargin * depth))
+            {
+                state.Stats.QuietSeePrune();
                 continue;
+            }
 
             // singular extension: 
             // when only the TT move succeeds extend it by 1 ply
@@ -350,6 +392,8 @@ internal static class Pruning
             else if (!isQuiet && triedNoisyCount < triedNoisy.Length)
                 triedNoisy[triedNoisyCount++] = move;
 
+            searchedMoves++;
+            state.Stats.MoveSearched();
             long rootNodesBefore = ply == 0 ? state.NodeCount : 0;
             state.PlayedPieceTo[ply] = ((int)position.At(move.From) << 6) | (int)move.To;
             position.Play(sideToMove, move);
@@ -385,11 +429,13 @@ internal static class Pruning
                     rr -= quietScores[i] / Tune.LmrHistDiv;
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);
+                    state.Stats.LmrReduce(reduction);
                 }
 
                 score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode);
                 if (score > alpha && (reduction > 0 || score < beta))
                 {
+                    state.Stats.Research(reduction);
                     int newDepth = depth - 1;
                     if (reduction > 0 && score > bestScore + Tune.DoDeeperMargin) newDepth++;
                     score = -AlphaBeta(state, position, newDepth, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
@@ -413,6 +459,7 @@ internal static class Pruning
             if (score > alpha) alpha = score;
             if (alpha < beta) continue;
 
+            state.Stats.BetaCutoff(searchedMoves);
             if (!excludedSearch)
             {
                 UpdateCaptureHistories(

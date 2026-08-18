@@ -16,6 +16,10 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Stats)' == 'true'">
+    <DefineConstants>$(DefineConstants);STATS</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Content Include="..\nnue\best.nnue" Condition="Exists('..\nnue\best.nnue')"
              CopyToOutputDirectory="Always" TargetPath="best.nnue" Link="best.nnue" />

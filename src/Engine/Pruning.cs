@@ -54,14 +54,14 @@ internal static class Pruning
         }
 
         if (ply >= SearchState.MaximumPly - 1)
-            return Eval.Evaluate(position);
+            return CorrectEval(state, position, Eval.Evaluate(position));
 
         bool excludedSearch = excluded.EncodedValue != 0;
 
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
         int ttScore = ttHit ? TranspositionTable.ScoreFromTt(ttEntry.Score, ply) : 0;
-        if (ttHit && ply > 0 && !excludedSearch && ttEntry.Depth >= depth)
+        if (ttHit && ply > 0 && beta - alpha == 1 && !excludedSearch && ttEntry.Depth >= depth)
         {
             switch (ttEntry.Flag)
             {

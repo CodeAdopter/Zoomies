@@ -19,6 +19,7 @@ internal static class Pruning
     private static readonly int QuietSeeMaxDepth = Tune.QuietSeeMaxDepth;
     private static readonly int QuietSeeMargin = Tune.QuietSeeMargin;
     private static readonly bool DemoteBadCaptures = Tune.BadCapDemote != 0;
+    private static readonly int CheckExtMaxEvasions = Tune.CheckExtMaxEvasions;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -180,6 +181,13 @@ internal static class Pruning
         if (moveCount == 0)
             return inCheck ? -Eval.MateValue + ply : 0;
         state.Stats.GeneratedMoves(moveCount);
+
+        // check extension demotion
+        if (inCheck && depth > 1 && moveCount >= CheckExtMaxEvasions)
+        {
+            state.Stats.CheckExtDemotion();
+            depth--;
+        }
 
         Move hashMove = ttHit ? new Move(ttEntry.Move) : default;
         if (hashMove.EncodedValue == 0 && ply == 0)

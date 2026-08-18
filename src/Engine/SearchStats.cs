@@ -7,7 +7,7 @@ public sealed class SearchStats
     public long TtProbes, TtHits, TtMoveHits, TtCutoffs;
     public long InteriorNodes, MovesGenerated, MovesSearched;
     public long BetaCutoffs, FirstMoveCutoffs, CutoffOrdinalSum;
-    public long CheckExtensions, IirReductions;
+    public long CheckExtensions, CheckExtDemotions, IirReductions;
     public long RfpCutoffs, RazorTries, RazorCutoffs;
     public long NmpTries, NmpCutoffs;
     public long LmpEvents, LmpSkippedMoves;
@@ -37,7 +37,7 @@ public sealed class SearchStats
         TtProbes = TtHits = TtMoveHits = TtCutoffs = 0;
         InteriorNodes = MovesGenerated = MovesSearched = 0;
         BetaCutoffs = FirstMoveCutoffs = CutoffOrdinalSum = 0;
-        CheckExtensions = IirReductions = 0;
+        CheckExtensions = CheckExtDemotions = IirReductions = 0;
         RfpCutoffs = RazorTries = RazorCutoffs = 0;
         NmpTries = NmpCutoffs = 0;
         LmpEvents = LmpSkippedMoves = 0;
@@ -72,6 +72,7 @@ public sealed class SearchStats
     [Conditional("STATS")] public void GeneratedMoves(int count) => MovesGenerated += count;
     [Conditional("STATS")] public void MoveSearched() => MovesSearched++;
     [Conditional("STATS")] public void CheckExtension() => CheckExtensions++;
+    [Conditional("STATS")] public void CheckExtDemotion() => CheckExtDemotions++;
     [Conditional("STATS")] public void IirReduction() => IirReductions++;
     [Conditional("STATS")] public void RfpCutoff() => RfpCutoffs++;
     [Conditional("STATS")] public void RazorTry() => RazorTries++;
@@ -232,7 +233,7 @@ public sealed class SearchStats
              $"see={SeePrunes:N0} quiet-see={QuietSeePrunes:N0} " +
              $"lmp={LmpSkippedMoves:N0} moves in {LmpEvents:N0} events");
 
-        Info($"{"extensions:",-13} check={CheckExtensions:N0} iir={IirReductions:N0}");
+        Info($"{"extensions:",-13} check={CheckExtensions:N0} demoted={CheckExtDemotions:N0} iir={IirReductions:N0}");
 
         double extensionRate = Percent(state.SingularExtensions, state.SingularAttempts);
         Info($"{"singular:",-13} tries={state.SingularAttempts:N0} " +

@@ -84,6 +84,11 @@ internal static class Tune
     public static readonly int IirMinDepth = P("ZT_IIR_MINDEPTH", 4);           // min depth
 
     // ===========================================================================
+    // check extensions
+    // ===========================================================================
+    public static readonly int CheckExtMaxEvasions = P("ZT_CHECKEXT_MAXEV", 8); // evasion threshold
+
+    // ===========================================================================
     // singular extensions
     // ===========================================================================
     public static readonly int SingularMinDepth = P("ZT_SING_MINDEPTH", 4);     // min depth

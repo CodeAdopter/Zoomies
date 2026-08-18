@@ -410,23 +410,33 @@ internal static class Pruning
             {
                 // late move reductions
                 int reduction = 0;
+                bool isBadCapture = i >= quietEnd;
                 if (depth >= 3 &&
                     i >= (isPv ? 2 : 1) &&
                     !inCheck &&
-                    isQuiet &&
+                    (isQuiet || (isBadCapture && Tune.LmrBadCap > 0)) &&
                     move != state.KillerMoves[ply, 0] &&
                     move != state.KillerMoves[ply, 1])
                 {
                     bool givesCheck = position.InCheck(position.Turn);
 
-                    // adaptive lmr
-                    int rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
-                    if (ttPv) rr -= Tune.LmrTtPv;
-                    rr += improving ? -Tune.LmrImp : Tune.LmrNonImp;
-                    if (cutNode) rr += Tune.LmrCutNode;
-                    if (ttCapture) rr += Tune.LmrTtCapture;
-                    if (givesCheck) rr -= Tune.LmrGivesCheck;
-                    rr -= quietScores[i] / Tune.LmrHistDiv;
+                    int rr;
+                    if (isQuiet)
+                    {
+                        // adaptive lmr
+                        rr = LmrTable[(Math.Min(depth, 63) << 6) | Math.Min(i, 63)];
+                        if (ttPv) rr -= Tune.LmrTtPv;
+                        rr += improving ? -Tune.LmrImp : Tune.LmrNonImp;
+                        if (cutNode) rr += Tune.LmrCutNode;
+                        if (ttCapture) rr += Tune.LmrTtCapture;
+                        if (givesCheck) rr -= Tune.LmrGivesCheck;
+                        rr -= quietScores[i] / Tune.LmrHistDiv;
+                    }
+                    else
+                    {
+                        rr = Tune.LmrBadCap;
+                        if (givesCheck) rr -= Tune.LmrGivesCheck;
+                    }
                     if (rr < 1) rr = 1;
                     reduction = Math.Min(rr, depth - 2);
                     state.Stats.LmrReduce(reduction);

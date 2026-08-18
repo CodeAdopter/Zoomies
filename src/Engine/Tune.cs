@@ -68,6 +68,7 @@ internal static class Tune
     public static readonly int LmrBase = P("ZT_LMR_BASE", 56);                  // table base, /100
     public static readonly int LmrDiv = P("ZT_LMR_DIV", 271);                   // log-log divisor, /100
     public static readonly int LmrHistDiv = P("ZT_LMR_HISTDIV", 8373);          // history per reduction step
+    public static readonly int LmrBadCap = P("ZT_LMR_BADCAP", 1);               // flat reduction for SEE losing captures
     public static readonly int DoDeeperMargin = P("ZT_DODEEPER", 50);           // re-search deeper
     // adaptive reduction inputs
     public static readonly int LmrTtPv = P("ZT_LMR_TTPV", 1);                   // reduce less on ttPv nodes

@@ -5,8 +5,10 @@ namespace Zoomies.Engine;
 
 internal static class Order
 {
+    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory = null) => TacticalMoves(position, moves, captureHistory, false, out _);
+
     [SkipLocalsInit]
-    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory = null)
+    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory, bool demoteLosing, out int losingCount)
     {
         Span<int> scores = stackalloc int[256];
         int tacticalMoveCount = 0;
@@ -47,7 +49,39 @@ internal static class Order
             scores[insertionIndex + 1] = score;
         }
 
-        return tacticalMoveCount;
+        losingCount = 0;
+        if (!demoteLosing || tacticalMoveCount == 0)
+            return tacticalMoveCount;
+
+        Span<Move> losing = stackalloc Move[256];
+        int goodCount = 0;
+        for (int i = 0; i < tacticalMoveCount; i++)
+        {
+            Move move = moves[i];
+            if (IsLosingCapture(position, move)) losing[losingCount++] = move;
+            else moves[goodCount++] = move;
+        }
+
+        if (losingCount > 0)
+        {
+            int quietCount = moves.Length - tacticalMoveCount;
+            moves.Slice(tacticalMoveCount, quietCount).CopyTo(moves.Slice(goodCount, quietCount));
+            losing[..losingCount].CopyTo(moves[(goodCount + quietCount)..]);
+        }
+
+        return goodCount;
+    }
+
+    private static bool IsLosingCapture(Position position, Move move)
+    {
+        if (!move.IsCapture ||
+            (move.Flags &  MoveFlags.Promotions) != 0 ||
+             move.Flags == MoveFlags.EnPassant)
+            return false;
+
+        int victim = Eval.PieceValue[(int)Types.TypeOf(position.At(move.To))];
+        int attacker = Eval.PieceValue[(int)Types.TypeOf(position.At(move.From))];
+        return attacker > victim && See.Exact(position, move) < 0;
     }
 
     private static int PieceTypeValue(Piece piece) =>

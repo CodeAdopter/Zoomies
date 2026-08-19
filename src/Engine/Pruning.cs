@@ -62,7 +62,7 @@ internal static class Pruning
 
         ulong key = position.History[position.Ply].Hash;
         bool ttHit = state.Tt.Probe(key, out TranspositionTable.Entry ttEntry);
-        state.Stats.TtProbe(ttHit, ttHit && ttEntry.Move != 0);
+        state.Stats.TtProbe(depth, ttHit, ttHit && ttEntry.Move != 0);
         int ttScore = ttHit ? TranspositionTable.ScoreFromTt(ttEntry.Score, ply) : 0;
         if (ttHit && ply > 0 && beta - alpha == 1 && !excludedSearch && ttEntry.Depth >= depth)
         {
@@ -477,7 +477,7 @@ internal static class Pruning
             if (score > alpha) alpha = score;
             if (alpha < beta) continue;
 
-            state.Stats.BetaCutoff(searchedMoves);
+            state.Stats.BetaCutoff(searchedMoves, i, fixedMoveCount, tacticalMoveEnd, quietStart, quietEnd);
             if (!excludedSearch)
             {
                 UpdateCaptureHistories(
@@ -519,6 +519,8 @@ internal static class Pruning
             UpdateCorrectionHistory(state, position, depth, bestScore - staticEval);
 
         if (!excludedSearch)
+        {
+            state.Stats.TtStore(storeFlag);
             state.Tt.Store(
                 key,
                 bestMove.EncodedValue,
@@ -526,6 +528,7 @@ internal static class Pruning
                 depth,
                 storeFlag,
                 ttPv);
+        }
 
         return bestScore;
     }

@@ -20,6 +20,10 @@ internal static class Pruning
     private static readonly int QuietSeeMargin = Tune.QuietSeeMargin;
     private static readonly bool DemoteBadCaptures = Tune.BadCapDemote != 0;
     private static readonly int CheckExtMaxEvasions = Tune.CheckExtMaxEvasions;
+    private static readonly int ZoomReduction = Tune.Zoom;
+    private static readonly int ZoomMinDepth = Tune.ZoomMinDepth;
+    private static readonly int ZoomCold = Tune.ZoomCold;
+    private static readonly bool ZoomFrom = Tune.ZoomFrom != 0;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -253,6 +257,7 @@ internal static class Pruning
         Span<Move> triedNoisy = stackalloc Move[64];
         int triedNoisyCount = 0;
         int searchedMoves = 0;
+        ulong zoomMask = ((ZoomReduction != 0 || ZoomCold != 0) && depth >= ZoomMinDepth) ? ZoomMask(position) : 0;
 
         for (int i = 0; i < moveCount; i++)
         {
@@ -439,6 +444,12 @@ internal static class Pruning
                         if (ttCapture) rr += Tune.LmrTtCapture;
                         if (givesCheck) rr -= Tune.LmrGivesCheck;
                         rr -= quietScores[i] / Tune.LmrHistDiv;
+                        // zoom in to the action
+                        if (zoomMask != 0)
+                        {
+                            bool inZone = ((zoomMask >> (int)move.To) & 1) != 0 || (ZoomFrom && ((zoomMask >> (int)move.From) & 1) != 0);
+                            rr += inZone ? -ZoomReduction : ZoomCold;
+                        }
                     }
                     else
                     {
@@ -531,6 +542,27 @@ internal static class Pruning
         }
 
         return bestScore;
+    }
+
+    private static ulong AttackSpan(Position position, Color c, ulong occ)
+    {
+        Square king = Bitboard.Bsf(position.BitboardOf(c, PieceType.King));
+        ulong att = Tables.PawnAttacks(c, position.BitboardOf(c, PieceType.Pawn))
+                  | Tables.KingAttacks(king);
+        ulong b = position.BitboardOf(c, PieceType.Knight);
+        while (b != 0) att |= Tables.KnightAttacks(Bitboard.PopLsb(ref b));
+        b = position.DiagonalSliders(c);
+        while (b != 0) att |= Tables.BishopAttacks(Bitboard.PopLsb(ref b), occ);
+        b = position.OrthogonalSliders(c);
+        while (b != 0) att |= Tables.RookAttacks(Bitboard.PopLsb(ref b), occ);
+        return att;
+    }
+
+    // zoom mask
+    private static ulong ZoomMask(Position position)
+    {
+        ulong occ = position.AllPieces(Color.White) | position.AllPieces(Color.Black);
+        return AttackSpan(position, Color.White, occ) & AttackSpan(position, Color.Black, occ);
     }
 
     private const int MaxHistory = 8192;

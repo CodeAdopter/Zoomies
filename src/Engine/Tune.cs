@@ -77,6 +77,11 @@ internal static class Tune
     public static readonly int LmrCutNode = P("ZT_LMR_CUTNODE", 1);             // reduce more on cut nodes
     public static readonly int LmrTtCapture = P("ZT_LMR_TTCAP", 1);             // reduce more when TT move captures
     public static readonly int LmrGivesCheck = P("ZT_LMR_CHECK", 1);            // reduce less for checking moves
+    // Zoom (zone of overlapping momentum)
+    public static readonly int Zoom = P("ZT_ZOOM", 1);                          // reduction magnitude inside zoom
+    public static readonly int ZoomMinDepth = P("ZT_ZOOM_MINDEPTH", 3);         // min zone depth to draw
+    public static readonly int ZoomCold = P("ZT_ZOOM_COLD", 0);                 // reduce stinkies
+    public static readonly int ZoomFrom = P("ZT_ZOOM_FROM", 0);                 // zoom in on the from square
 
     // ===========================================================================
     // internal iterative reduction

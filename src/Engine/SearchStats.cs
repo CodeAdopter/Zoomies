@@ -21,6 +21,20 @@ public sealed class SearchStats
     public long QMovesGenerated, QMovesSearched;
     public long QBetaCutoffs, QFirstMoveCutoffs, QCutoffOrdinalSum;
 
+    private static readonly string[] DepthBucketName = ["<=0", "1-2", "3-4", "5-8", "9-16", "17+"];
+    private readonly long[] bucketProbes = new long[6];
+    private readonly long[] bucketHits = new long[6];
+    private readonly long[] bucketMoveHits = new long[6];
+    private readonly long[] bucketCutoffs = new long[6];
+
+    private static readonly string[] SourceName = ["hash", "tactical", "killer", "quiet", "badcap"];
+    private readonly long[] cutoffBySource = new long[5];
+    private readonly long[] firstCutoffBySource = new long[5];
+
+    // TT store traffic
+    public long StoreLower, StoreExact, StoreUpper;
+    public long QStoreStandPat, QStoreCutoff, QStoreUpper;
+
     // per-iteration table indexed by root depth
     private readonly long[] iterationNodes = new long[SearchState.MaximumPly];
     private readonly long[] iterationTotalNodes = new long[SearchState.MaximumPly];
@@ -48,6 +62,14 @@ public sealed class SearchStats
         QStandPatCutoffs = QDeltaPrunes = QSeePrunes = 0;
         QMovesGenerated = QMovesSearched = 0;
         QBetaCutoffs = QFirstMoveCutoffs = QCutoffOrdinalSum = 0;
+        StoreLower = StoreExact = StoreUpper = 0;
+        QStoreStandPat = QStoreCutoff = QStoreUpper = 0;
+        Array.Clear(bucketProbes);
+        Array.Clear(bucketHits);
+        Array.Clear(bucketMoveHits);
+        Array.Clear(bucketCutoffs);
+        Array.Clear(cutoffBySource);
+        Array.Clear(firstCutoffBySource);
         Array.Clear(iterationNodes);
         Array.Clear(iterationTotalNodes);
         Array.Clear(iterationMilliseconds);
@@ -59,15 +81,43 @@ public sealed class SearchStats
     }
 
     // main search probes
+    private static int DepthBucket(int depth) => depth <= 0 ? 0 : depth <= 2 ? 1 : depth <= 4 ? 2 : depth <= 8 ? 3 : depth <= 16 ? 4 : 5;
+
     [Conditional("STATS")]
-    public void TtProbe(bool hit, bool hasMove)
+    public void TtProbe(int depth, bool hit, bool hasMove)
     {
         TtProbes++;
         if (hit) TtHits++;
         if (hasMove) TtMoveHits++;
+        int bucket = DepthBucket(depth);
+        bucketProbes[bucket]++;
+        if (hit) bucketHits[bucket]++;
+        if (hasMove) bucketMoveHits[bucket]++;
+        lastProbeBucket = bucket;
     }
 
-    [Conditional("STATS")] public void TtCutoff() => TtCutoffs++;
+    private int lastProbeBucket;
+
+    [Conditional("STATS")]
+    public void TtCutoff()
+    {
+        TtCutoffs++;
+        bucketCutoffs[lastProbeBucket]++;
+    }
+
+    [Conditional("STATS")] public void TtStore(TtFlag flag)
+    {
+        if (flag == TtFlag.Lower) StoreLower++;
+        else if (flag == TtFlag.Exact) StoreExact++;
+        else StoreUpper++;
+    }
+
+    [Conditional("STATS")] public void QTtStore(int kind)
+    {
+        if (kind == 0) QStoreStandPat++;
+        else if (kind == 1) QStoreCutoff++;
+        else QStoreUpper++;
+    }
     [Conditional("STATS")] public void InteriorNode() => InteriorNodes++;
     [Conditional("STATS")] public void GeneratedMoves(int count) => MovesGenerated += count;
     [Conditional("STATS")] public void MoveSearched() => MovesSearched++;
@@ -108,11 +158,19 @@ public sealed class SearchStats
     }
 
     [Conditional("STATS")]
-    public void BetaCutoff(int ordinal)
+    public void BetaCutoff(int ordinal, int moveIndex, int fixedEnd, int tacticalEnd, int killerEnd, int quietEnd)
     {
         BetaCutoffs++;
         CutoffOrdinalSum += ordinal;
         if (ordinal <= 1) FirstMoveCutoffs++;
+
+        int source = moveIndex < fixedEnd ? 0
+            : moveIndex < tacticalEnd ? 1
+            : moveIndex < killerEnd ? 2
+            : moveIndex < quietEnd ? 3
+            : 4;
+        cutoffBySource[source]++;
+        if (ordinal <= 1) firstCutoffBySource[source]++;
     }
 
     // quiescence probes
@@ -213,6 +271,20 @@ public sealed class SearchStats
         double averageCutoffMove = Average(CutoffOrdinalSum, BetaCutoffs);
         Info($"{"cutoffs:",-13} {BetaCutoffs:N0} ({cutoffNodeShare:F1}% of interior) " +
              $"first-move={firstMoveRate:F1}% avg-cutoff-move={averageCutoffMove:F2}");
+
+        for (int s = 0; s < 5; s++)
+            Info($"{"cutoff-src:",-13} {SourceName[s],-8} all={cutoffBySource[s],13:N0} ({Percent(cutoffBySource[s], BetaCutoffs),5:F1}%) " +
+                 $"first={firstCutoffBySource[s],13:N0} ({Percent(firstCutoffBySource[s], FirstMoveCutoffs),5:F1}%)");
+
+        for (int b = 0; b < 6; b++)
+            Info($"{"tt-depth:",-13} d{DepthBucketName[b],-5} probes={bucketProbes[b],13:N0} hit={Percent(bucketHits[b], bucketProbes[b]),5:F1}% " +
+                 $"with-move={Percent(bucketMoveHits[b], bucketProbes[b]),5:F1}% cutoff={Percent(bucketCutoffs[b], bucketProbes[b]),5:F1}%");
+
+        long mainStores = StoreLower + StoreExact + StoreUpper;
+        long qStores = QStoreStandPat + QStoreCutoff + QStoreUpper;
+        Info($"{"tt stores:",-13} main={mainStores:N0} (L={StoreLower:N0} E={StoreExact:N0} U={StoreUpper:N0}) " +
+             $"qsearch={qStores:N0} (standpat={QStoreStandPat:N0} cut={QStoreCutoff:N0} upper={QStoreUpper:N0}) " +
+             $"q-share={Percent(qStores, mainStores + qStores):F1}%");
     }
 
     [Conditional("STATS")]

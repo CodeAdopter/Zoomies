@@ -62,6 +62,7 @@ internal static class Quiescence
             if (standingPatScore >= beta)
             {
                 state.Stats.QStandPatCutoff();
+                state.Stats.QTtStore(0);
                 state.Tt.Store(key, 0, TranspositionTable.ScoreToTt(standingPatScore, ply), 0, TtFlag.Lower, ttPv);
                 return standingPatScore;
             }
@@ -201,12 +202,14 @@ internal static class Quiescence
             if (score >= beta)
             {
                 state.Stats.QBetaCutoff(searchedMoves);
+                state.Stats.QTtStore(1);
                 state.Tt.Store(key, move.EncodedValue, TranspositionTable.ScoreToTt(score, ply), 0, TtFlag.Lower, ttPv);
                 return score;
             }
             if (score > alpha) alpha = score;
         }
 
+        state.Stats.QTtStore(2);
         state.Tt.Store(
             key,
             bestMove.EncodedValue,

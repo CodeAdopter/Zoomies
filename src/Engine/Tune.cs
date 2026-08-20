@@ -79,9 +79,10 @@ internal static class Tune
     public static readonly int LmrGivesCheck = P("ZT_LMR_CHECK", 1);            // reduce less for checking moves
     // Zoom (zone of overlapping momentum)
     public static readonly int Zoom = P("ZT_ZOOM", 1);                          // reduction magnitude inside zoom
-    public static readonly int ZoomMinDepth = P("ZT_ZOOM_MINDEPTH", 3);         // min zone depth to draw
+    public static readonly int ZoomMinDepth = P("ZT_ZOOM_MINDEPTH", 8);         // min zone depth to draw
     public static readonly int ZoomCold = P("ZT_ZOOM_COLD", 0);                 // reduce stinkies
-    public static readonly int ZoomFrom = P("ZT_ZOOM_FROM", 0);                 // zoom in on the from square
+    public static readonly int ZoomFrom = P("ZT_ZOOM_FROM", 1);                 // zoom in on the from square
+    public static readonly int ZoomOrder = P("ZT_ZOOM_ORDER", 100);             // ordering bonus for quiets in zoom
 
     // ===========================================================================
     // internal iterative reduction

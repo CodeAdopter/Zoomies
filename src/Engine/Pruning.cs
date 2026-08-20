@@ -24,7 +24,8 @@ internal static class Pruning
     private static readonly int ZoomMinDepth = Tune.ZoomMinDepth;
     private static readonly int ZoomCold = Tune.ZoomCold;
     private static readonly bool ZoomFrom = Tune.ZoomFrom != 0;
-    private static readonly int ZoomOrderBonus = Tune.ZoomOrder;
+    private static readonly int MaoFlat = Tune.MaoFlat;
+    private static readonly int MaoWeight = Tune.MaoWeight;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -245,14 +246,14 @@ internal static class Pruning
         int previous2 = ply >= 2 ? state.PlayedPieceTo[ply - 2] : -1;
         int pawnHistoryBase = PawnHistoryBase(position);
 
-        ulong zoomMask = ((ZoomReduction != 0 || ZoomCold != 0 || ZoomOrderBonus != 0) && depth >= ZoomMinDepth) ? ZoomMask(position) : 0;
+        ulong zoomMask = ((ZoomReduction != 0 || ZoomCold != 0 || MaoFlat != 0 || MaoWeight != 0) && depth >= ZoomMinDepth) ? ZoomMask(position) : 0;
 
         Span<int> quietScores = stackalloc int[256];
         for (int i = quietStart; i < quietEnd; i++)
         {
             quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2, pawnHistoryBase);
-            if (zoomMask != 0 && ZoomOrderBonus != 0 && InZone(zoomMask, moves[i]))
-                quietScores[i] += ZoomOrderBonus;
+            if (zoomMask != 0 && InZone(zoomMask, moves[i]))
+                quietScores[i] += MaoFlat + (MaoWeight != 0 ? MaoWeight * MaoPieceWeight(position, moves[i]) / 256 : 0);
         }
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
@@ -562,6 +563,22 @@ internal static class Pruning
     }
 
     private static bool InZone(ulong zoomMask, Move move) => ((zoomMask >> (int)move.To) & 1) != 0 || (ZoomFrom && ((zoomMask >> (int)move.From) & 1) != 0);
+
+    // mutual attack ordering
+    // quiet moves that touch squares attacked by both sides are
+    // searched earlier, because they contest the zone of overlapping momentum (ZOOM).
+    // They get two stacked bonuses:
+    //   1. MaoFlat - for being in the zone (includes queen bonus)
+    //   2. MaoWeight - more weight to cheaper pieces (king + queen get zero bonus)
+    private static int MaoPieceWeight(Position position, Move move)
+    {
+        int queenValue = Eval.PieceValue[(int)PieceType.Queen];
+        int pawnValue = Eval.PieceValue[(int)PieceType.Pawn];
+        PieceType movingPiece = Types.TypeOf(position.At(move.From));
+        int movingValue = movingPiece == PieceType.King ? queenValue : Eval.PieceValue[(int)movingPiece];
+        int weight = 256 * (queenValue - movingValue) / (queenValue - pawnValue);
+        return weight < 0 ? 0 : weight;
+    }
 
     // zoom mask
     private static ulong ZoomMask(Position position)

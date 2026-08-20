@@ -24,6 +24,7 @@ internal static class Pruning
     private static readonly int ZoomMinDepth = Tune.ZoomMinDepth;
     private static readonly int ZoomCold = Tune.ZoomCold;
     private static readonly bool ZoomFrom = Tune.ZoomFrom != 0;
+    private static readonly int ZoomOrderBonus = Tune.ZoomOrder;
 
     private static readonly int[] LmrTable = BuildLmrTable();
 
@@ -244,9 +245,15 @@ internal static class Pruning
         int previous2 = ply >= 2 ? state.PlayedPieceTo[ply - 2] : -1;
         int pawnHistoryBase = PawnHistoryBase(position);
 
+        ulong zoomMask = ((ZoomReduction != 0 || ZoomCold != 0 || ZoomOrderBonus != 0) && depth >= ZoomMinDepth) ? ZoomMask(position) : 0;
+
         Span<int> quietScores = stackalloc int[256];
         for (int i = quietStart; i < quietEnd; i++)
+        {
             quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2, pawnHistoryBase);
+            if (zoomMask != 0 && ZoomOrderBonus != 0 && InZone(zoomMask, moves[i]))
+                quietScores[i] += ZoomOrderBonus;
+        }
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
         Move bestMove = default;
@@ -257,7 +264,6 @@ internal static class Pruning
         Span<Move> triedNoisy = stackalloc Move[64];
         int triedNoisyCount = 0;
         int searchedMoves = 0;
-        ulong zoomMask = ((ZoomReduction != 0 || ZoomCold != 0) && depth >= ZoomMinDepth) ? ZoomMask(position) : 0;
 
         for (int i = 0; i < moveCount; i++)
         {
@@ -446,10 +452,7 @@ internal static class Pruning
                         rr -= quietScores[i] / Tune.LmrHistDiv;
                         // zoom in to the action
                         if (zoomMask != 0)
-                        {
-                            bool inZone = ((zoomMask >> (int)move.To) & 1) != 0 || (ZoomFrom && ((zoomMask >> (int)move.From) & 1) != 0);
-                            rr += inZone ? -ZoomReduction : ZoomCold;
-                        }
+                            rr += InZone(zoomMask, move) ? -ZoomReduction : ZoomCold;
                     }
                     else
                     {
@@ -557,6 +560,8 @@ internal static class Pruning
         while (b != 0) att |= Tables.RookAttacks(Bitboard.PopLsb(ref b), occ);
         return att;
     }
+
+    private static bool InZone(ulong zoomMask, Move move) => ((zoomMask >> (int)move.To) & 1) != 0 || (ZoomFrom && ((zoomMask >> (int)move.From) & 1) != 0);
 
     // zoom mask
     private static ulong ZoomMask(Position position)

@@ -61,6 +61,7 @@ internal static class Tune
     // move ordering
     // ===========================================================================
     public static readonly int BadCapDemote = P("ZT_BADCAP_DEMOTE", 1);         // order SEE losing captures after quiets
+    public static readonly int CounterMove = P("ZT_COUNTERMOVE", 1);            // move the countermove after the killers
 
     // ===========================================================================
     // late move reductions

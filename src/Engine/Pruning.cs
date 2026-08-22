@@ -19,6 +19,7 @@ internal static class Pruning
     private static readonly int QuietSeeMaxDepth = Tune.QuietSeeMaxDepth;
     private static readonly int QuietSeeMargin = Tune.QuietSeeMargin;
     private static readonly bool DemoteBadCaptures = Tune.BadCapDemote != 0;
+    private static readonly bool UseCounterMove = Tune.CounterMove != 0;
     private static readonly int CheckExtMaxEvasions = Tune.CheckExtMaxEvasions;
     private static readonly int ZoomReduction = Tune.Zoom;
     private static readonly int ZoomMinDepth = Tune.ZoomMinDepth;
@@ -244,6 +245,23 @@ internal static class Pruning
 
         int previous1 = ply >= 1 ? state.PlayedPieceTo[ply - 1] : -1;
         int previous2 = ply >= 2 ? state.PlayedPieceTo[ply - 2] : -1;
+
+        Move counterMove = default;
+        if (UseCounterMove && previous1 >= 0)
+        {
+            Move counter = state.CounterMoves[previous1];
+            if (counter.EncodedValue != 0)
+            {
+                for (int i = quietStart; i < quietEnd; i++)
+                {
+                    if (moves[i] != counter) continue;
+                    (moves[quietStart], moves[i]) = (moves[i], moves[quietStart]);
+                    counterMove = counter;
+                    quietStart++;
+                    break;
+                }
+            }
+        }
         int pawnHistoryBase = PawnHistoryBase(position);
 
         ulong zoomMask = ((ZoomReduction != 0 || ZoomCold != 0 || MaoFlat != 0 || MaoWeight != 0) && depth >= ZoomMinDepth) ? ZoomMask(position) : 0;
@@ -436,7 +454,8 @@ internal static class Pruning
                     !inCheck &&
                     (isQuiet || (isBadCapture && Tune.LmrBadCap > 0)) &&
                     move != state.KillerMoves[ply, 0] &&
-                    move != state.KillerMoves[ply, 1])
+                    move != state.KillerMoves[ply, 1] &&
+                    move != counterMove)
                 {
                     bool givesCheck = position.InCheck(position.Turn);
 
@@ -508,6 +527,8 @@ internal static class Pruning
                         state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
                         state.KillerMoves[ply, 0] = move;
                     }
+                    if (UseCounterMove && previous1 >= 0)
+                        state.CounterMoves[previous1] = move;
                 }
                 else
                 {

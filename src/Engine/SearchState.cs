@@ -33,6 +33,7 @@ public sealed class SearchState
     public const int NoStaticEval = int.MinValue / 2;
 
     public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
+    public readonly Move[] CounterMoves = new Move[PieceToCount];
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
     public readonly short[] ContinuationHistory1 = new short[PieceToCount * PieceToCount];
     public readonly short[] ContinuationHistory2 = new short[PieceToCount * PieceToCount];
@@ -85,6 +86,7 @@ public sealed class SearchState
     public void ClearHistory()
     {
         Array.Clear(QuietHistory, 0, QuietHistory.Length);
+        Array.Clear(CounterMoves, 0, CounterMoves.Length);
         Array.Clear(ContinuationHistory1, 0, ContinuationHistory1.Length);
         Array.Clear(ContinuationHistory2, 0, ContinuationHistory2.Length);
         Array.Clear(CaptureHistory, 0, CaptureHistory.Length);

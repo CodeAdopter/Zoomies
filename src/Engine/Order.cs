@@ -18,7 +18,7 @@ internal static class Order
         for (int i = 0; i < moves.Length; i++)
         {
             Move move = moves[i];
-            if (!move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0)
+            if (move.IsQuiet)
                 continue;
 
             int victimValue = move.IsCapture ? PieceTypeValue(position.At(move.To)) : 0;

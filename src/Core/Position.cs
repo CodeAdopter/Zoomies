@@ -260,9 +260,9 @@ public class Position
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ulong BitboardOf(Piece pc) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(pieceBB), (int)pc);
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ulong BitboardOf(Color c, PieceType pt) =>
-        Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(pieceBB), (int)Types.MakePiece(c, pt));
-    public Piece At(Square sq) => board[(int)sq];
+    public ulong BitboardOf(Color c, PieceType pt) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(pieceBB), (int)Types.MakePiece(c, pt));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Piece At(Square sq) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(board), (int)sq);
     public ReadOnlySpan<Piece> Board => board;
     public Color Turn => sideToPlay;
     public int Ply => gamePly;
@@ -297,15 +297,18 @@ public class Position
 
     public ulong AttackersFrom(Color c, Square s, ulong occ)
     {
+        ulong knight = Tables.KnightAttacks(s);
+        ulong bishop = Tables.BishopAttacks(s, occ);
+        ulong rook = Tables.RookAttacks(s, occ);
         return c == Color.White ?
             (Tables.PawnAttacks(Color.Black, s) & pieceBB[(int)Piece.WhitePawn]) |
-            (Tables.Attacks(PieceType.Knight, s, occ) & pieceBB[(int)Piece.WhiteKnight]) |
-            (Tables.Attacks(PieceType.Bishop, s, occ) & (pieceBB[(int)Piece.WhiteBishop] | pieceBB[(int)Piece.WhiteQueen])) |
-            (Tables.Attacks(PieceType.Rook, s, occ) & (pieceBB[(int)Piece.WhiteRook] | pieceBB[(int)Piece.WhiteQueen])) :
+            (knight & pieceBB[(int)Piece.WhiteKnight]) |
+            (bishop & (pieceBB[(int)Piece.WhiteBishop] | pieceBB[(int)Piece.WhiteQueen])) |
+            (rook & (pieceBB[(int)Piece.WhiteRook] | pieceBB[(int)Piece.WhiteQueen])) :
             (Tables.PawnAttacks(Color.White, s) & pieceBB[(int)Piece.BlackPawn]) |
-            (Tables.Attacks(PieceType.Knight, s, occ) & pieceBB[(int)Piece.BlackKnight]) |
-            (Tables.Attacks(PieceType.Bishop, s, occ) & (pieceBB[(int)Piece.BlackBishop] | pieceBB[(int)Piece.BlackQueen])) |
-            (Tables.Attacks(PieceType.Rook, s, occ) & (pieceBB[(int)Piece.BlackRook] | pieceBB[(int)Piece.BlackQueen]));
+            (knight & pieceBB[(int)Piece.BlackKnight]) |
+            (bishop & (pieceBB[(int)Piece.BlackBishop] | pieceBB[(int)Piece.BlackQueen])) |
+            (rook & (pieceBB[(int)Piece.BlackRook] | pieceBB[(int)Piece.BlackQueen]));
     }
     public bool InCheck(Color c)
     {

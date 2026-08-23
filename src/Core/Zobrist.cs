@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Zoomies.Core;
 
@@ -39,7 +40,7 @@ public static class Zobrist
     #pragma warning restore CA2211
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ulong Piece(Piece pc, Square s) => ZobristTable[((int)pc << 6) | (int)s];
+    public static ulong Piece(Piece pc, Square s) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(ZobristTable), ((int)pc << 6) | (int)s);
 
     public static void Initialize()
     {

@@ -32,7 +32,7 @@ public sealed class SearchState
     public const int PawnHistorySize = 512;
     public const int NoStaticEval = int.MinValue / 2;
 
-    public readonly Move[,] KillerMoves = new Move[MaximumPly, 2];
+    public readonly Move[] KillerMoves = new Move[MaximumPly * 2];
     public readonly Move[] CounterMoves = new Move[PieceToCount];
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
     public readonly short[] ContinuationHistory1 = new short[PieceToCount * PieceToCount];

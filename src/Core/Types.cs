@@ -42,7 +42,7 @@ public enum PieceType : int
     King = 5
 }
 
-public enum Piece : int
+public enum Piece : byte
 {
     WhitePawn = 0,
     WhiteKnight = 1,
@@ -140,6 +140,8 @@ public readonly struct Move
     public readonly MoveFlags Flags => (MoveFlags)((move >> 12) & 0xf);
 
     public readonly bool IsCapture => ((move >> 12) & 0b1000) != 0;
+
+    public readonly bool IsQuiet => (move & 0xC000) == 0;
 
     public override string ToString()
     {

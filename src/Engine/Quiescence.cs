@@ -170,7 +170,7 @@ internal static class Quiescence
             else if (bestScore > -Eval.MateBound)
             {
                 // skip quiet evasions
-                if (!move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0)
+                if (move.IsQuiet)
                     continue;
 
                 // prune capture evasions that lose material

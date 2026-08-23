@@ -234,7 +234,7 @@ internal static class Pruning
             killerIndex < 2 && quietStart < moveCount;
             killerIndex++)
         {
-            Move killer = state.KillerMoves[ply, killerIndex];
+            Move killer = state.KillerMoves[ply * 2 + killerIndex];
             if (killer.EncodedValue == 0) continue;
 
             for (int i = quietStart; i < quietEnd; i++)
@@ -312,7 +312,7 @@ internal static class Pruning
 
             Move move = moves[i];
             if (excludedSearch && move == excluded) continue;
-            bool isQuiet = !move.IsCapture && (move.Flags & MoveFlags.Promotions) == 0;
+            bool isQuiet = move.IsQuiet;
 
             // late move pruning
             if (!isPv &&
@@ -461,8 +461,8 @@ internal static class Pruning
                     i >= (isPv ? 2 : 1) &&
                     !inCheck &&
                     (isQuiet || (isBadCapture && Tune.LmrBadCap > 0)) &&
-                    move != state.KillerMoves[ply, 0] &&
-                    move != state.KillerMoves[ply, 1] &&
+                    move != state.KillerMoves[ply * 2] &&
+                    move != state.KillerMoves[ply * 2 + 1] &&
                     move != counterMove)
                 {
                     bool givesCheck = position.InCheck(position.Turn);
@@ -531,10 +531,10 @@ internal static class Pruning
                     UpdateQuietHistories(
                         state, position, sideToMove, move,
                         triedQuiets[..triedQuietCount], depth, previous1, previous2, pawnHistoryBase);
-                    if (state.KillerMoves[ply, 0] != move)
+                    if (state.KillerMoves[ply * 2] != move)
                     {
-                        state.KillerMoves[ply, 1] = state.KillerMoves[ply, 0];
-                        state.KillerMoves[ply, 0] = move;
+                        state.KillerMoves[ply * 2 + 1] = state.KillerMoves[ply * 2];
+                        state.KillerMoves[ply * 2] = move;
                     }
                     if (UseCounterMove && previous1 >= 0)
                         state.CounterMoves[previous1] = move;
@@ -558,7 +558,7 @@ internal static class Pruning
         if (!inCheck &&
             !excludedSearch &&
             Math.Abs(bestScore) < Eval.MateBound &&
-            !bestMove.IsCapture && (bestMove.Flags & MoveFlags.Promotions) == 0 &&
+            bestMove.IsQuiet &&
             !(storeFlag == TtFlag.Lower && bestScore <= staticEval) &&
             !(storeFlag == TtFlag.Upper && bestScore >= staticEval))
             UpdateCorrectionHistory(state, position, depth, bestScore - staticEval);

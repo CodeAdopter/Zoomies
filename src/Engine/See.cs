@@ -54,9 +54,9 @@ internal static class See
 
             occ ^= fromBit;
             if (lva == PieceType.Pawn || lva == PieceType.Bishop || lva == PieceType.Queen)
-                attackers |= Tables.Attacks(PieceType.Bishop, to, occ) & diag;
+                attackers |= Tables.BishopAttacks(to, occ) & diag;
             if (lva == PieceType.Rook || lva == PieceType.Queen)
-                attackers |= Tables.Attacks(PieceType.Rook, to, occ) & ortho;
+                attackers |= Tables.RookAttacks(to, occ) & ortho;
 
             occupant = lva;
             side = side.Flip();
@@ -78,6 +78,6 @@ internal static class See
     private static ulong AttackersTo(Position pos, Square s, ulong occ) =>
         pos.AttackersFrom(Color.White, s, occ) |
         pos.AttackersFrom(Color.Black, s, occ) |
-        (Tables.Attacks(PieceType.King, s, occ) &
+        (Tables.KingAttacks(s) &
         (pos.BitboardOf(Color.White, PieceType.King) | pos.BitboardOf(Color.Black, PieceType.King)));
 }

@@ -5,8 +5,10 @@ namespace Zoomies.Engine;
 
 internal static class Quiescence
 {
+    public static int Search(SearchState state, Position position, int alpha, int beta, int ply) => Search(state, position, alpha, beta, ply, position.InCheck(position.Turn));
+
     [SkipLocalsInit]
-    public static int Search(SearchState state, Position position, int alpha, int beta, int ply)
+    public static int Search(SearchState state, Position position, int alpha, int beta, int ply, bool inCheck)
     {
         if (state.StopRequested) return 0;
         if ((state.NodeCount & 8191) == 0 && state.ReachedSearchLimit())
@@ -41,7 +43,6 @@ internal static class Quiescence
         Move ttMove = ttHit ? new Move(ttEntry.Move) : default;
         bool ttPv = beta - alpha > 1 || (ttHit && ttEntry.WasPv);
 
-        bool inCheck = position.InCheck(position.Turn);
         int bestScore = -SearchState.Infinity;
         Move bestMove = default;
         int standingPatScore = 0;

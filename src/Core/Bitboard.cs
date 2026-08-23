@@ -32,31 +32,11 @@ public static class Bitboard
             ? MainAntiDiagonalBits >> (8 * (7 - antiDiagonal))
             : MainAntiDiagonalBits << (8 * (antiDiagonal - 7));
 
-    public static int PopCount(ulong x)
-    {
-        const ulong k1 = 0x5555555555555555UL;
-        const ulong k2 = 0x3333333333333333UL;
-        const ulong k4 = 0x0f0f0f0f0f0f0f0fUL;
-        const ulong kf = 0x0101010101010101UL;
-
-        x -= (x >> 1) & k1;
-        x = (x & k2) + ((x >> 2) & k2);
-        x = (x + (x >> 4)) & k4;
-        x = (x * kf) >> 56;
-        return (int)x;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int PopCount(ulong x) => BitOperations.PopCount(x);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int SparsePopCount(ulong x)
-    {
-        int count = 0;
-        while (x != 0)
-        {
-            count++;
-            x &= x - 1;
-        }
-        return count;
-    }
+    public static int SparsePopCount(ulong x) => BitOperations.PopCount(x);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Square PopLsb(ref ulong b)

@@ -41,8 +41,9 @@ internal static class Pruning
 
     [SkipLocalsInit]
     public static int AlphaBeta(SearchState state, Position position, int depth,
-    int alpha, int beta, int ply, 
-    bool allowNullMove = true, bool cutNode = false, Move excluded = default)
+    int alpha, int beta, int ply,
+    bool allowNullMove = true, bool cutNode = false, Move excluded = default,
+    int knownInCheck = -1, int knownStaticEval = int.MinValue)
     {
         if (state.StopRequested) return 0;
         if ((state.NodeCount & 8191) == 0 && state.ReachedSearchLimit())
@@ -87,7 +88,7 @@ internal static class Pruning
             }
         }
 
-        bool inCheck = position.InCheck(position.Turn);
+        bool inCheck = knownInCheck >= 0 ? knownInCheck != 0 : position.InCheck(position.Turn);
         bool ttPv = beta - alpha > 1 || (ttHit && ttEntry.WasPv);
 
         // check extensions
@@ -106,13 +107,15 @@ internal static class Pruning
         }
 
         if (depth <= 0)
-            return Quiescence.Search(state, position, alpha, beta, ply);
+            return Quiescence.Search(state, position, alpha, beta, ply, inCheck);
 
         state.NodeCount++;
         state.Stats.InteriorNode();
         if (ply > state.SelectiveDepth) state.SelectiveDepth = ply;
 
-        int staticEval = inCheck ? 0 : CorrectEval(state, position, Eval.Evaluate(position));
+        int staticEval = inCheck ? 0
+            : knownStaticEval != int.MinValue ? knownStaticEval
+            : CorrectEval(state, position, Eval.Evaluate(position));
         state.StaticEvalStack[ply] = inCheck ? SearchState.NoStaticEval : staticEval;
         bool improving = !inCheck && ply >= 2 &&
             state.StaticEvalStack[ply - 2] != SearchState.NoStaticEval &&
@@ -150,7 +153,7 @@ internal static class Pruning
             pruneEval + 240 + 200 * depth <= alpha)
         {
             state.Stats.RazorTry();
-            int razorScore = Quiescence.Search(state, position, alpha, beta, ply);
+            int razorScore = Quiescence.Search(state, position, alpha, beta, ply, inCheck);
             if (razorScore <= alpha)
             {
                 state.Stats.RazorCutoff();
@@ -214,13 +217,15 @@ internal static class Pruning
             }
         }
 
+        Span<int> badCaptureSee = stackalloc int[256];
         int tacticalMoveEnd = fixedMoveCount +
             Order.TacticalMoves(
                 position,
                 moves[fixedMoveCount..moveCount],
                 state.CaptureHistory,
                 DemoteBadCaptures,
-                out int badCaptureCount);
+                out int badCaptureCount,
+                badCaptureSee);
 
         // SEE-losing captures are ordered after quiets
         int quietEnd = moveCount - badCaptureCount;
@@ -352,11 +357,13 @@ internal static class Pruning
                 continue;
             }
 
-            // SEE pruning: skip captures losing too much material at low depth
+            // SEE pruning: skip captures losing too much material at low depth      
             if (bestScore > -SearchState.Infinity &&
                 depth <= Tune.SeePruneMaxDepth &&
                 move.IsCapture &&
-                !See.Ge(position, move, -Tune.SeePruneMult * depth))
+                (i >= quietEnd
+                    ? badCaptureSee[i - quietEnd] < -Tune.SeePruneMult * depth
+                    : !See.Ge(position, move, -Tune.SeePruneMult * depth)))
             {
                 state.Stats.SeePrune();
                 continue;
@@ -393,7 +400,7 @@ internal static class Pruning
 
                 // verification search: exclude the TT move and see if 
                 // another move can still reach singularBeta
-                int singularScore = AlphaBeta(state, position, (depth - 1) / 2, singularBeta - 1, singularBeta, ply, false, cutNode, move);
+                int singularScore = AlphaBeta(state, position, (depth - 1) / 2, singularBeta - 1, singularBeta, ply, false, cutNode, move, inCheck ? 1 : 0, staticEval);
 
                 if (state.StopRequested) return 0;
 
@@ -448,6 +455,7 @@ internal static class Pruning
             {
                 // late move reductions
                 int reduction = 0;
+                int childInCheck = -1;
                 bool isBadCapture = i >= quietEnd;
                 if (depth >= 3 &&
                     i >= (isPv ? 2 : 1) &&
@@ -458,6 +466,7 @@ internal static class Pruning
                     move != counterMove)
                 {
                     bool givesCheck = position.InCheck(position.Turn);
+                    childInCheck = givesCheck ? 1 : 0;
 
                     int rr;
                     if (isQuiet)
@@ -484,13 +493,13 @@ internal static class Pruning
                     state.Stats.LmrReduce(reduction);
                 }
 
-                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode);
+                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode, default, childInCheck);
                 if (score > alpha && (reduction > 0 || score < beta))
                 {
                     state.Stats.Research(reduction);
                     int newDepth = depth - 1;
                     if (reduction > 0 && score > bestScore + Tune.DoDeeperMargin) newDepth++;
-                    score = -AlphaBeta(state, position, newDepth, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode);
+                    score = -AlphaBeta(state, position, newDepth, -beta, -alpha, ply + 1, true, isPv ? false : !cutNode, default, childInCheck);
                 }
             }
 

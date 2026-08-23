@@ -5,10 +5,12 @@ namespace Zoomies.Engine;
 
 internal static class Order
 {
-    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory = null) => TacticalMoves(position, moves, captureHistory, false, out _);
+    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory = null) => TacticalMoves(position, moves, captureHistory, false, out _, default);
+
+    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory, bool demoteLosing, out int losingCount) => TacticalMoves(position, moves, captureHistory, demoteLosing, out losingCount, default);
 
     [SkipLocalsInit]
-    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory, bool demoteLosing, out int losingCount)
+    public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory, bool demoteLosing, out int losingCount, Span<int> losingSeeOut)
     {
         Span<int> scores = stackalloc int[256];
         int tacticalMoveCount = 0;
@@ -54,11 +56,16 @@ internal static class Order
             return tacticalMoveCount;
 
         Span<Move> losing = stackalloc Move[256];
+        Span<int> losingSee = stackalloc int[256];
         int goodCount = 0;
         for (int i = 0; i < tacticalMoveCount; i++)
         {
             Move move = moves[i];
-            if (IsLosingCapture(position, move)) losing[losingCount++] = move;
+            if (IsLosingCapture(position, move, out int see))
+            {
+                losingSee[losingCount] = see;
+                losing[losingCount++] = move;
+            }
             else moves[goodCount++] = move;
         }
 
@@ -67,13 +74,15 @@ internal static class Order
             int quietCount = moves.Length - tacticalMoveCount;
             moves.Slice(tacticalMoveCount, quietCount).CopyTo(moves.Slice(goodCount, quietCount));
             losing[..losingCount].CopyTo(moves[(goodCount + quietCount)..]);
+            if (!losingSeeOut.IsEmpty) losingSee[..losingCount].CopyTo(losingSeeOut);
         }
 
         return goodCount;
     }
 
-    private static bool IsLosingCapture(Position position, Move move)
+    private static bool IsLosingCapture(Position position, Move move, out int see)
     {
+        see = 0;
         if (!move.IsCapture ||
             (move.Flags &  MoveFlags.Promotions) != 0 ||
              move.Flags == MoveFlags.EnPassant)
@@ -81,7 +90,9 @@ internal static class Order
 
         int victim = Eval.PieceValue[(int)Types.TypeOf(position.At(move.To))];
         int attacker = Eval.PieceValue[(int)Types.TypeOf(position.At(move.From))];
-        return attacker > victim && See.Exact(position, move) < 0;
+        if (attacker <= victim) return false;
+        see = See.Exact(position, move);
+        return see < 0;
     }
 
     private static int PieceTypeValue(Piece piece) =>

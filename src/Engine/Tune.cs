@@ -145,6 +145,11 @@ internal static class Tune
     [Tune("ZT_TM_SDROP_MAX", 110, 300, 8, "tm")] public static int TmScoreDropMax = 189;
 
     // ===========================================================================
+    // minor outpost
+    // ===========================================================================
+    [Tune("ZT_OUTPOST", 0, 4, 1, "outpost")] public static int Outpost = 2;
+
+    // ===========================================================================
     // locked
     // ===========================================================================
     [Tune("ZT_BADCAP_DEMOTE", 0, 1, 1, "ordering", tunable: false)] public static int BadCapDemote = 1;

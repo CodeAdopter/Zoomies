@@ -28,8 +28,31 @@ internal static class Pruning
     private static int MaoFlat;
     private static int MaoWeight;
     private static int RootNodeOrd;
+    private static int OutpostReduction;
 
     private static readonly int[] LmrTable = new int[64 * 64];
+
+    private static readonly ulong[][] OutpostFrontSpan = BuildOutpostSpans();
+
+    private static ulong[][] BuildOutpostSpans()
+    {
+        var spans = new ulong[2][];
+        spans[(int)Color.White] = new ulong[64];
+        spans[(int)Color.Black] = new ulong[64];
+        for (int sq = 0; sq < 64; sq++)
+        {
+            int f = sq & 7, r = sq >> 3;
+            ulong adjFiles = 0;
+            if (f > 0) adjFiles |= Bitboard.FileMask((Core.File)(f - 1));
+            if (f < 7) adjFiles |= Bitboard.FileMask((Core.File)(f + 1));
+            ulong ahead = 0, behind = 0;
+            for (int rr = r + 1; rr <= 7; rr++) ahead |= Bitboard.RankMask((Rank)rr);
+            for (int rr = r - 1; rr >= 0; rr--) behind |= Bitboard.RankMask((Rank)rr);
+            spans[(int)Color.White][sq] = adjFiles & ahead;
+            spans[(int)Color.Black][sq] = adjFiles & behind;
+        }
+        return spans;
+    }
 
     static Pruning() => Refresh();
 
@@ -53,6 +76,7 @@ internal static class Pruning
         MaoFlat = Tune.MaoFlat;
         MaoWeight = Tune.MaoWeight;
         RootNodeOrd = Tune.RootNodeOrd;
+        OutpostReduction = Tune.Outpost;
 
         for (int d = 1; d < 64; d++)
             for (int m = 1; m < 64; m++)
@@ -505,6 +529,9 @@ internal static class Pruning
                         // zoom in to the action
                         if (zoomMask != 0)
                             rr += InZone(zoomMask, move) ? -ZoomReduction : ZoomCold;
+                        // reduce a minor piece less when it lands on an outpost
+                        if (OutpostReduction != 0 && IsOutpost(position, sideToMove, move.To))
+                            rr -= OutpostReduction;
                     }
                     else
                     {
@@ -619,6 +646,25 @@ internal static class Pruning
     }
 
     private static bool InZone(ulong zoomMask, Move move) => ((zoomMask >> (int)move.To) & 1) != 0 || (ZoomFrom && ((zoomMask >> (int)move.From) & 1) != 0);
+
+    // conditions for a minor piece outpost  
+    // a) within the outpost zone
+    // b) defended by a pawn
+    // c) cannot be immediately attacked by enemy pawns
+    private static bool IsOutpost(Position position, Color mover, Square to)
+    {
+        PieceType pt = Types.TypeOf(position.At(to));
+        if (pt != PieceType.Knight && pt != PieceType.Bishop) return false;
+
+        int rr = (int)Types.RelativeRank(mover, Types.RankOf(to));
+        if (rr < (int)Rank.Rank4 || rr > (int)Rank.Rank6) return false;
+
+        Color them = mover == Color.White ? Color.Black : Color.White;
+
+        if ((Tables.PawnAttacks(them, to) & position.BitboardOf(mover, PieceType.Pawn)) == 0) return false;
+        if ((OutpostFrontSpan[(int)mover][(int)to] & position.BitboardOf(them, PieceType.Pawn)) != 0) return false;
+        return true;
+    }
 
     // mutual attack ordering
     // quiet moves that touch squares attacked by both sides are

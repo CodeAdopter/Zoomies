@@ -11,10 +11,7 @@ public struct SearchLimits
     public bool SearchUntilStopped;
 
     public static SearchLimits Depth(int depth) => new() { MaxDepth = depth };
-
-    public static SearchLimits Time(long milliseconds) =>
-        new() { MoveTimeMilliseconds = milliseconds };
-
+    public static SearchLimits Time(long milliseconds) => new() { MoveTimeMilliseconds = milliseconds };
     public static SearchLimits Nodes(long nodeCount) => new() { MaxNodes = nodeCount };
 }
 
@@ -24,7 +21,6 @@ public sealed class Search
     private const double StabilityFloor = 0.5;
     private const double StabilityDecay = 0.3;
     private static readonly int[] StabilityScale = BuildStabilityScale();
-
     private const int EffortMinDepth = 8;
     private const int EffortHighThreshold = 96;
     private const int EffortHighScale = 65;
@@ -40,11 +36,19 @@ public sealed class Search
     {
         var table = new int[8];
         for (int s = 0; s < table.Length; s++)
-            table[s] = (int)Math.Round(
-                100 * (StabilityFloor + (StabilityPeak - StabilityFloor) * Math.Pow(StabilityDecay, s)));
+            table[s] = (int)Math.Round(100 * (StabilityFloor + (StabilityPeak - StabilityFloor) * Math.Pow(StabilityDecay, s)));
         return table;
     }
 
+
+    private static int AspFailHighReduce = Tune.AspFailHighReduce;
+    private static bool UseInstamove = Tune.Instamove != 0;
+
+    internal static void RefreshTune()
+    {
+        AspFailHighReduce = Tune.AspFailHighReduce;
+        UseInstamove = Tune.Instamove != 0;
+    }
 
     private readonly SearchState state = new();
     private int threadCount = 1;
@@ -220,6 +224,11 @@ public sealed class Search
             return default;
 
         st.PrincipalVariationMove = rootMoves[0];
+
+        bool instamove = UseInstamove && isMain && rootMoveCount == 1 &&
+            limits.SoftTimeMilliseconds > 0 && limits.MaxDepth <= 0 &&
+            limits.MaxNodes <= 0 && !limits.SearchUntilStopped;
+
         int maxDepth = limits.MaxDepth > 0 ? limits.MaxDepth : SearchState.MaximumPly - 1;
         int lastScore = 0;
         int completedDepth = 0;
@@ -234,8 +243,6 @@ public sealed class Search
             long iterationStartNodes = st.NodeCount;
             st.BestMoveEffortNodes = 0;
 
-            // aspiration windows: start narrow around the previous score,
-            // widen exponentially on fail until the score fits
             int alpha = -SearchState.Infinity;
             int beta = SearchState.Infinity;
             int delta = Tune.AspDelta;
@@ -248,21 +255,27 @@ public sealed class Search
             int score;
             int aspirationFailHighs = 0;
             int aspirationFailLows = 0;
+            int failHighStreak = 0;
             while (true)
             {
-                score = Pruning.AlphaBeta(st, position, depth, alpha, beta, 0);
+                int searchDepth = AspFailHighReduce > 0
+                    ? Math.Max(depth - Math.Min(failHighStreak, AspFailHighReduce), 1)
+                    : depth;
+                score = Pruning.AlphaBeta(st, position, searchDepth, alpha, beta, 0);
                 if (st.StopRequested) break;
 
                 if (score <= alpha)
                 {
                     alpha = Math.Max(score - delta, -SearchState.Infinity);
                     aspirationFailLows++;
+                    failHighStreak = 0;
                     st.Stats.AspFailLow();
                 }
                 else if (score >= beta)
                 {
                     beta = Math.Min(score + delta, SearchState.Infinity);
                     aspirationFailHighs++;
+                    failHighStreak++;
                     st.Stats.AspFailHigh();
                 }
                 else
@@ -304,9 +317,8 @@ public sealed class Search
 
             if (st.ReachedSearchLimit()) break;
             if (!isMain) continue;
+            if (instamove) break;
 
-            // don't start another iteration if time is running out;
-            // the hard limit still ends the search immediately
             stability = st.PrincipalVariationMove == previousBest
                 ? Math.Min(stability + 1, StabilityScale.Length - 1)
                 : 0;
@@ -319,20 +331,20 @@ public sealed class Search
                     : effortPercent <= EffortLowThreshold ? EffortLowScale
                     : 100;
 
-            // when the root score drops from the previous depth
-            // the best move may be refuted at the next depth
-            // so extend the soft limit
             int scoreDropScale = 100;
             if (depth >= ScoreDropMinDepth)
                 scoreDropScale = Math.Clamp(
                     100 + (previousScore - score - Tune.TmScoreDropMargin) * Tune.TmScoreDropSlope,
                     100, Tune.TmScoreDropMax);
+
             long combinedScale = Math.Clamp(
                 StabilityScale[stability] * effortScale * scoreDropScale / 10000,
                 SoftScaleFloor, SoftScaleCeiling);
+
             long softLimit = st.HasSoftLimit
                 ? st.SoftTimeLimitMilliseconds * combinedScale / 100
                 : st.SoftTimeLimitMilliseconds;
+                
             if (!st.SearchUntilStopped &&
                 st.Clock.ElapsedMilliseconds >= softLimit) break;
         }

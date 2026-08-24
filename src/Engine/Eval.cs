@@ -9,7 +9,17 @@ public static class Eval
     public const int MateValue = 30000;
     public const int MateBound = MateValue - 1000;
 
-    public static int Evaluate(Position pos) => Nnue.Loaded ? Nnue.Evaluate(pos) : Taper(pos, pos.WhiteEvaluation);
+    private static int R50DampK = Tune.R50Damp;
+
+    internal static void Refresh() => R50DampK = Tune.R50Damp;
+
+    public static int Evaluate(Position pos)
+    {
+        int cp = Nnue.Loaded ? Nnue.Evaluate(pos) : Taper(pos, pos.WhiteEvaluation);
+        if (R50DampK > 0)
+            cp = cp * Math.Max(R50DampK - pos.History[pos.Ply].HalfMoveClock, 0) / R50DampK;
+        return cp;
+    }
 
     public static int EvaluateScratch(Position pos)
     {

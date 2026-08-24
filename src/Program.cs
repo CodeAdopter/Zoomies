@@ -65,6 +65,11 @@ if (args.Length > 0)
             }
             return;
         }
+        
+        case "tune":
+            Tune.Dump(Console.Out);
+            return;
+
     }
 }
 

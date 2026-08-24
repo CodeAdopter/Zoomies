@@ -31,7 +31,6 @@ public sealed class SearchState
     public const int CorrectionHistorySize = 16384;
     public const int PawnHistorySize = 512;
     public const int NoStaticEval = int.MinValue / 2;
-
     public readonly Move[] KillerMoves = new Move[MaximumPly * 2];
     public readonly Move[] CounterMoves = new Move[PieceToCount];
     public readonly int[] QuietHistory = new int[2 * 64 * 64];
@@ -40,8 +39,39 @@ public sealed class SearchState
     public readonly short[] CaptureHistory = new short[PieceToCount * 8];
     public readonly short[] PawnHistory = new short[PawnHistorySize * PieceToCount];
     public readonly short[] PawnCorrectionHistory = new short[2 * CorrectionHistorySize];
-    public readonly int[] PlayedPieceTo = new int[MaximumPly]; // -1 = none (root/null move)
+    public readonly int[] PlayedPieceTo = new int[MaximumPly];
     public readonly int[] StaticEvalStack = new int[MaximumPly];
+    public readonly Move[] RootEffortMoves = new Move[256];
+    public readonly long[] RootEffortNodes = new long[256];
+    public int RootEffortCount;
+    public long RootEffortTotal;
+
+    public void AddRootEffort(Move move, long nodes)
+    {
+        RootEffortTotal += nodes;
+        for (int i = 0; i < RootEffortCount; i++)
+        {
+            if (RootEffortMoves[i] == move) 
+            { 
+                RootEffortNodes[i] += nodes; 
+                return; 
+            }
+        }
+
+        if (RootEffortCount < RootEffortMoves.Length)
+        {
+            RootEffortMoves[RootEffortCount] = move;
+            RootEffortNodes[RootEffortCount++] = nodes;
+        }
+    }
+
+    public long RootEffortFor(Move move)
+    {
+        for (int i = 0; i < RootEffortCount; i++)
+            if (RootEffortMoves[i] == move) 
+                return RootEffortNodes[i];
+        return 0;
+    }
 
     public readonly Stopwatch Clock = new();
     public readonly SearchStats Stats = new();
@@ -76,13 +106,13 @@ public sealed class SearchState
         NodeLimit = limits.MaxNodes;
         PrincipalVariationMove = default;
         BestMoveEffortNodes = 0;
+        RootEffortCount = 0;
+        RootEffortTotal = 0;
         SelectiveDepth = 0;
         Array.Clear(KillerMoves, 0, KillerMoves.Length);
         Array.Fill(PlayedPieceTo, -1);
     }
 
-    // keep history between searches for faster convergence at short time controls; 
-    // stale entries fade over time, and a new game resets everything
     public void ClearHistory()
     {
         Array.Clear(QuietHistory, 0, QuietHistory.Length);

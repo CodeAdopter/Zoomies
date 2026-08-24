@@ -100,6 +100,10 @@ public static class Uci
                     search.Stop();
                     break;
 
+                case "tune":
+                    Tune.Dump(Console.Out);
+                    break;
+
                 case "bench":
                     StopActiveSearch();
                     int benchmarkDepth = tokens.Length > 1 &&
@@ -126,6 +130,8 @@ public static class Uci
         Console.WriteLine($"option name Threads type spin default 1 min 1 max {MaxThreads}");
         Console.WriteLine($"option name Move Overhead type spin default {TimeManager.MoveOverheadMilliseconds} min 0 max 5000");
         Console.WriteLine("option name Clear Hash type button");
+        foreach (Tune.Entry e in Tune.All)
+            Console.WriteLine($"option name {e.Name} type spin default {e.Default} min {e.Min} max {e.Max}");
         Console.WriteLine("uciok");
     }
 
@@ -159,6 +165,10 @@ public static class Uci
 
             case "clear hash":
                 search.ClearHash();
+                break;
+
+            default:
+                Tune.TrySet(name, value);
                 break;
         }
     }

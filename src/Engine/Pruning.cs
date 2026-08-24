@@ -6,37 +6,57 @@ namespace Zoomies.Engine;
 internal static class Pruning
 {
     private static readonly int[] LmpThreshold = [0, 5, 8, 12, 18, 26, 36];
-    private static readonly int LmpMaxDepth = Math.Min(Tune.LmpMaxDepth, 6);
+    private static int LmpMaxDepth;
 
     private static int LmpBudget(int depth, bool improving) =>
         Math.Max(LmpThreshold[depth] + (improving ? Tune.LmpImp : -Tune.LmpNonImp) - depth, 0);
 
-    private static readonly int SingularMinDepth = Tune.SingularMinDepth;
-    private static readonly int SingularMargin = Tune.SingularMargin;
-    private static readonly int SingularTtSlack = Tune.SingularTtSlack;
-    private static readonly int DoubleExtensionMargin = Tune.DoubleExtensionMargin;
-    private static readonly int DoubleExtensionLimit = Tune.DoubleExtensionLimit;
-    private static readonly int QuietSeeMaxDepth = Tune.QuietSeeMaxDepth;
-    private static readonly int QuietSeeMargin = Tune.QuietSeeMargin;
-    private static readonly bool DemoteBadCaptures = Tune.BadCapDemote != 0;
-    private static readonly bool UseCounterMove = Tune.CounterMove != 0;
-    private static readonly int CheckExtMaxEvasions = Tune.CheckExtMaxEvasions;
-    private static readonly int ZoomReduction = Tune.Zoom;
-    private static readonly int ZoomMinDepth = Tune.ZoomMinDepth;
-    private static readonly int ZoomCold = Tune.ZoomCold;
-    private static readonly bool ZoomFrom = Tune.ZoomFrom != 0;
-    private static readonly int MaoFlat = Tune.MaoFlat;
-    private static readonly int MaoWeight = Tune.MaoWeight;
+    private static int SingularMinDepth;
+    private static int SingularMargin;
+    private static int SingularTtSlack;
+    private static int DoubleExtensionMargin;
+    private static int DoubleExtensionLimit;
+    private static int QuietSeeMaxDepth;
+    private static int QuietSeeMargin;
+    private static bool DemoteBadCaptures;
+    private static bool UseCounterMove;
+    private static int CheckExtMaxEvasions;
+    private static int ZoomReduction;
+    private static int ZoomMinDepth;
+    private static int ZoomCold;
+    private static bool ZoomFrom;
+    private static int MaoFlat;
+    private static int MaoWeight;
+    private static int RootNodeOrd;
 
-    private static readonly int[] LmrTable = BuildLmrTable();
+    private static readonly int[] LmrTable = new int[64 * 64];
 
-    private static int[] BuildLmrTable()
+    static Pruning() => Refresh();
+
+    internal static void Refresh()
     {
-        var t = new int[64 * 64];
+        LmpMaxDepth = Math.Min(Tune.LmpMaxDepth, 6);
+        SingularMinDepth = Tune.SingularMinDepth;
+        SingularMargin = Tune.SingularMargin;
+        SingularTtSlack = Tune.SingularTtSlack;
+        DoubleExtensionMargin = Tune.DoubleExtensionMargin;
+        DoubleExtensionLimit = Tune.DoubleExtensionLimit;
+        QuietSeeMaxDepth = Tune.QuietSeeMaxDepth;
+        QuietSeeMargin = Tune.QuietSeeMargin;
+        DemoteBadCaptures = Tune.BadCapDemote != 0;
+        UseCounterMove = Tune.CounterMove != 0;
+        CheckExtMaxEvasions = Tune.CheckExtMaxEvasions;
+        ZoomReduction = Tune.Zoom;
+        ZoomMinDepth = Tune.ZoomMinDepth;
+        ZoomCold = Tune.ZoomCold;
+        ZoomFrom = Tune.ZoomFrom != 0;
+        MaoFlat = Tune.MaoFlat;
+        MaoWeight = Tune.MaoWeight;
+        RootNodeOrd = Tune.RootNodeOrd;
+
         for (int d = 1; d < 64; d++)
             for (int m = 1; m < 64; m++)
-                t[(d << 6) | m] = (int)(Tune.LmrBase / 100.0 + Math.Log(d) * Math.Log(m) / (Tune.LmrDiv / 100.0));
-        return t;
+                LmrTable[(d << 6) | m] = (int)(Tune.LmrBase / 100.0 + Math.Log(d) * Math.Log(m) / (Tune.LmrDiv / 100.0));
     }
 
     [SkipLocalsInit]
@@ -270,6 +290,7 @@ internal static class Pruning
         int pawnHistoryBase = PawnHistoryBase(position);
 
         ulong zoomMask = ((ZoomReduction != 0 || ZoomCold != 0 || MaoFlat != 0 || MaoWeight != 0) && depth >= ZoomMinDepth) ? ZoomMask(position) : 0;
+        bool rootNodeOrdering = RootNodeOrd != 0 && ply == 0 && state.RootEffortTotal > 0;
 
         Span<int> quietScores = stackalloc int[256];
         for (int i = quietStart; i < quietEnd; i++)
@@ -277,6 +298,8 @@ internal static class Pruning
             quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2, pawnHistoryBase);
             if (zoomMask != 0 && InZone(zoomMask, moves[i]))
                 quietScores[i] += MaoFlat + (MaoWeight != 0 ? MaoWeight * MaoPieceWeight(position, moves[i]) / 256 : 0);
+            if (rootNodeOrdering)
+                quietScores[i] += (int)(state.RootEffortFor(moves[i]) * RootNodeOrd / state.RootEffortTotal);
         }
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
@@ -504,6 +527,9 @@ internal static class Pruning
             }
 
             position.Undo(sideToMove, move);
+
+            if (RootNodeOrd != 0 && ply == 0)
+                state.AddRootEffort(move, state.NodeCount - rootNodesBefore);
 
             if (state.StopRequested) return 0;
             if (score > bestScore)

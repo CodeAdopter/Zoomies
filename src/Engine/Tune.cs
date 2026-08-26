@@ -81,6 +81,7 @@ internal static class Tune
     [Tune("ZT_LMR_TTPV", 0, 2, 1, "lmr-flags")] public static int LmrTtPv = 1;
     [Tune("ZT_LMR_CUTNODE", 0, 2, 1, "lmr-flags")] public static int LmrCutNode = 2;
     [Tune("ZT_LMR_TTCAP", 0, 2, 1, "lmr-flags")] public static int LmrTtCapture = 1;
+    [Tune("ZT_LMR_PAWN", -3, 3, 1, "lmr-flags")] public static int LmrPawn = -1;
 
     // ===========================================================================
     // zoom

@@ -532,6 +532,9 @@ internal static class Pruning
                         // reduce a minor piece less when it lands on an outpost
                         if (OutpostReduction != 0 && IsOutpost(position, sideToMove, move.To))
                             rr -= OutpostReduction;
+                        // reduce quiet pawn pushes less
+                        if (Tune.LmrPawn != 0 && Types.TypeOf(position.At(move.To)) == PieceType.Pawn)
+                            rr -= Tune.LmrPawn;
                     }
                     else
                     {

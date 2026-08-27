@@ -16,6 +16,9 @@ internal sealed class TuneAttribute(
     public readonly bool Tunable = tunable;
 }
 
+[AttributeUsage(AttributeTargets.Field)]
+internal sealed class HyperTuneAttribute : Attribute { }
+
 internal static class Tune
 {
     // ===========================================================================
@@ -176,7 +179,7 @@ internal static class Tune
     [Tune("ZT_LMR_NONIMP", 0, 2, 1, "lmr-flags")] public static int LmrNonImp = 0;
     [Tune("ZT_LMR_CHECK", 0, 2, 1, "lmr-flags")] public static int LmrGivesCheck = 0;
 
-    public readonly record struct Entry(FieldInfo Field, string Name, int Default, int Min, int Max, int Step, string Group, bool Tunable);
+    public readonly record struct Entry(FieldInfo Field, string Name, int Default, int Min, int Max, int Step, string Group, bool Tunable, bool HyperTune);
     private static readonly Entry[] Entries;
     private static readonly Dictionary<string, int> Index;
     public static IReadOnlyList<Entry> All => Entries;
@@ -191,7 +194,8 @@ internal static class Tune
             if (attr is null) 
                 continue;
 
-            entries.Add(new Entry(field, attr.Name, (int)field.GetValue(null)!, attr.Min, attr.Max, attr.Step, attr.Group, attr.Tunable));
+            bool hyper = field.GetCustomAttribute<HyperTuneAttribute>() is not null;
+            entries.Add(new Entry(field, attr.Name, (int)field.GetValue(null)!, attr.Min, attr.Max, attr.Step, attr.Group, attr.Tunable, hyper));
 
             string? v = Environment.GetEnvironmentVariable(attr.Name);
             if (v is not null && int.TryParse(v, out int x))
@@ -225,7 +229,7 @@ internal static class Tune
         Eval.Refresh();
     }
 
-    private sealed record DumpEntry(string Name, int Value, int Default, int Min, int Max, int Step, string Group, bool Tunable);
+    private sealed record DumpEntry(string Name, int Value, int Default, int Min, int Max, int Step, string Group, bool Tunable, bool HyperTune);
 
     private static readonly JsonSerializerOptions DumpOptions = new()
     {
@@ -235,7 +239,7 @@ internal static class Tune
 
     public static void Dump(TextWriter writer)
     {
-        DumpEntry[] entries = [.. Entries.Select(e => new DumpEntry(e.Name, (int)e.Field.GetValue(null)!, e.Default, e.Min, e.Max, e.Step, e.Group, e.Tunable))];
+        DumpEntry[] entries = [.. Entries.Select(e => new DumpEntry(e.Name, (int)e.Field.GetValue(null)!, e.Default, e.Min, e.Max, e.Step, e.Group, e.Tunable, e.HyperTune))];
         writer.WriteLine(JsonSerializer.Serialize(entries, DumpOptions));
     }
 }

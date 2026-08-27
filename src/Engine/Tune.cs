@@ -154,6 +154,11 @@ internal static class Tune
     [Tune("ZT_OUTPOST", 0, 4, 1, "outpost")] public static int Outpost = 2;
 
     // ===========================================================================
+    // nnue output scale
+    // ===========================================================================
+    [Tune("ZT_SCALE", 1, 1000, 1, "eval")] public static int NnueScale = 500;
+
+    // ===========================================================================
     // locked
     // ===========================================================================
     [Tune("ZT_BADCAP_DEMOTE", 0, 1, 1, "ordering", tunable: false)] public static int BadCapDemote = 1;
@@ -227,6 +232,7 @@ internal static class Tune
         See.Refresh();
         Search.RefreshTune();
         Eval.Refresh();
+        Nnue.RefreshTune();
     }
 
     private sealed record DumpEntry(string Name, int Value, int Default, int Min, int Max, int Step, string Group, bool Tunable, bool HyperTune);

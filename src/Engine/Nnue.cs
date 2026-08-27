@@ -9,7 +9,10 @@ namespace Zoomies.Engine;
 public static class Nnue
 {
     public const int BlockRows = 768;
-    private const int QA = 181, QO = 1024, Scale = 600;
+    private const int QA = 181, QO = 1024;
+    private static int Scale = Tune.NnueScale;
+
+    public static void RefreshTune() => Scale = Tune.NnueScale;
 
     private static short[] ftB = [], ftW = [], outW = [];
     private static int[] outBs = [];

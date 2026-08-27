@@ -106,8 +106,8 @@ internal static class Quiescence
         int moveCount = inCheck
             ? Engine.Search.GenerateLegalMoves(position, moves)
             : position.Turn == Color.White
-                ? position.GenerateCapturesFast<White>(moves)
-                : position.GenerateCapturesFast<Black>(moves);
+                ? position.GenerateQuiescenceLegalsInto<White>(moves)
+                : position.GenerateQuiescenceLegalsInto<Black>(moves);
 
         if (moveCount == 0 && inCheck)
             return -Eval.MateValue + ply;
@@ -182,13 +182,6 @@ internal static class Quiescence
             }
 
             position.Play(sideToMove, move);
-            
-            if (!inCheck && IsIllegal(position, sideToMove))
-            {
-                position.Undo(sideToMove, move);
-                continue;
-            }
-
             searchedMoves++;
             state.Stats.QMoveSearched();
             int score = -Search(state, position, -beta, -alpha, ply + 1);
@@ -220,12 +213,5 @@ internal static class Quiescence
             ttPv);
 
         return bestScore;
-    }
-
-    private static bool IsIllegal(Position position, Color mover)
-    {
-        if (position.InCheck(mover)) return true;
-        Square ourKing = Bitboard.Bsf(position.BitboardOf(mover, PieceType.King));
-        return (Tables.KingAttacks(ourKing) & position.BitboardOf(mover.Flip(), PieceType.King)) != 0;
     }
 }

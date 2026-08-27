@@ -25,6 +25,13 @@ public static class MoveGeneration
         return sink.Count;
     }
 
+    public static int GenerateQuiescenceLegalsInto<TUs>(this Position pos, Span<Move> moveList) where TUs : IColor, new()
+    {
+        var sink = new QuiescenceSink(moveList);
+        pos.GenerateLegals<TUs, QuiescenceSink>(ref sink);
+        return sink.Count;
+    }
+
     public static int GenerateCapturesFast<TUs>(this Position pos, Span<Move> moveList) where TUs : IColor, new()
     {
         var us = new TUs().Value;

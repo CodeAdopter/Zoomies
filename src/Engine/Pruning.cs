@@ -21,6 +21,8 @@ internal static class Pruning
     private static bool DemoteBadCaptures;
     private static bool UseCounterMove;
     private static int CheckExtMaxEvasions;
+    private static bool RazorEnabled;
+    private static int RazorBase;
     private static int ZoomReduction;
     private static int ZoomMinDepth;
     private static int ZoomCold;
@@ -69,6 +71,8 @@ internal static class Pruning
         DemoteBadCaptures = Tune.BadCapDemote != 0;
         UseCounterMove = Tune.CounterMove != 0;
         CheckExtMaxEvasions = Tune.CheckExtMaxEvasions;
+        RazorEnabled = Tune.Razor != 0;
+        RazorBase = Tune.RazorBase;
         ZoomReduction = Tune.Zoom;
         ZoomMinDepth = Tune.ZoomMinDepth;
         ZoomCold = Tune.ZoomCold;
@@ -189,12 +193,13 @@ internal static class Pruning
         }
 
         // razoring
-        if (ply > 0 &&
+        if (RazorEnabled &&
+            ply > 0 &&
             !inCheck &&
             depth <= 4 &&
             beta - alpha == 1 &&
             alpha > -Eval.MateBound &&
-            pruneEval + 240 + 200 * depth <= alpha)
+            pruneEval + RazorBase + 200 * depth <= alpha)
         {
             state.Stats.RazorTry();
             int razorScore = Quiescence.Search(state, position, alpha, beta, ply, inCheck);

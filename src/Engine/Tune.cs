@@ -159,6 +159,14 @@ internal static class Tune
     [Tune("ZT_SCALE", 450, 650, 1, "eval")] public static int NnueScale = 550;
 
     // ===========================================================================
+    // razoring
+    // ===========================================================================
+    [HyperTune]
+    [Tune("ZT_RAZOR", 0, 1, 1, "razor")] public static int Razor = 1;
+    [HyperTune]
+    [Tune("ZT_RAZOR_BASE", -200, 400, 12, "razor")] public static int RazorBase = 400;
+
+    // ===========================================================================
     // locked
     // ===========================================================================
     [Tune("ZT_BADCAP_DEMOTE", 0, 1, 1, "ordering", tunable: false)] public static int BadCapDemote = 1;

@@ -179,7 +179,7 @@ internal static class Tune
     // ===========================================================================
     [Tune("ZT_R50_DAMP", 64, 512, 16, "eval")] public static int R50Damp = 258;
     [Tune("ZT_ASP_FH_REDUCE", 0, 4, 1, "aspiration")] public static int AspFailHighReduce = 2;
-    [Tune("ZT_ROOT_NODEORD", 0, 32768, 1024, "ordering")] public static int RootNodeOrd = 8967;
+    [Tune("ZT_ROOT_NODEORD", 0, 32768, 1024, "ordering")] public static int RootNodeOrd = 0;
 
     // ===========================================================================
     // disabled

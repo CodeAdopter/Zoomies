@@ -156,13 +156,13 @@ internal static class Tune
     // ===========================================================================
     // nnue output scale
     // ===========================================================================
-    [Tune("ZT_SCALE", 450, 650, 1, "eval")] public static int NnueScale = 600;
+    [Tune("ZT_SCALE", 450, 650, 1, "eval")] public static int NnueScale = 550;
 
     // ===========================================================================
     // razoring
     // ===========================================================================
     [Tune("ZT_RAZOR", 0, 1, 1, "razor")] public static int Razor = 1;
-    [Tune("ZT_RAZOR_BASE", -200, 400, 12, "razor")] public static int RazorBase = 250;
+    [Tune("ZT_RAZOR_BASE", -200, 400, 12, "razor")] public static int RazorBase = 400;
 
     // ===========================================================================
     // locked

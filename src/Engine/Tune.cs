@@ -128,6 +128,7 @@ internal static class Tune
     // correction history
     // ===========================================================================
     [Tune("ZT_CORR_WCAP", 8, 40, 1, "corrhist")] public static int CorrWeightCap = 19;
+    [Tune("ZT_CORR_NONPAWN", 0, 512, 16, "corrhist")] public static int CorrNonPawn = 256;
 
     // ===========================================================================
     // aspiration windows

@@ -31,6 +31,7 @@ internal static class Pruning
     private static int MaoWeight;
     private static int RootNodeOrd;
     private static int OutpostReduction;
+    private static int NonPawnCorrWeight;
 
     private static readonly int[] LmrTable = new int[64 * 64];
 
@@ -81,6 +82,7 @@ internal static class Pruning
         MaoWeight = Tune.MaoWeight;
         RootNodeOrd = Tune.RootNodeOrd;
         OutpostReduction = Tune.Outpost;
+        NonPawnCorrWeight = Tune.CorrNonPawn;
 
         for (int d = 1; d < 64; d++)
             for (int m = 1; m < 64; m++)
@@ -792,13 +794,26 @@ internal static class Pruning
     public static int CorrectEval(SearchState state, Position position, int rawEval)
     {
         int correction = state.PawnCorrectionHistory[CorrectionIndex(position)];
+        // non pawn correction
+        if (NonPawnCorrWeight != 0)
+        {
+            int nonPawn = state.NonPawnCorrectionHistory[NonPawnCorrectionIndex(position, Color.White)]
+                        + state.NonPawnCorrectionHistory[NonPawnCorrectionIndex(position, Color.Black)];
+            correction += nonPawn * NonPawnCorrWeight / 256;
+        }
         return Math.Clamp(rawEval + correction / CorrectionGrain, -Eval.MateBound + 1, Eval.MateBound - 1);
     }
 
     private static void UpdateCorrectionHistory(SearchState state, Position position, int depth, int diff)
     {
         int weight = Math.Min(depth + 1, Tune.CorrWeightCap);
-        ref short entry = ref state.PawnCorrectionHistory[CorrectionIndex(position)];
+        BlendCorrection(ref state.PawnCorrectionHistory[CorrectionIndex(position)], diff, weight);
+        BlendCorrection(ref state.NonPawnCorrectionHistory[NonPawnCorrectionIndex(position, Color.White)], diff, weight);
+        BlendCorrection(ref state.NonPawnCorrectionHistory[NonPawnCorrectionIndex(position, Color.Black)], diff, weight);
+    }
+
+    private static void BlendCorrection(ref short entry, int diff, int weight)
+    {
         long value = ((long)entry * (CorrectionWeight - weight) + (long)diff * CorrectionGrain * weight) / CorrectionWeight;
         entry = (short)Math.Clamp(value, -CorrectionMax, CorrectionMax);
     }
@@ -808,6 +823,16 @@ internal static class Pruning
         (int)(MixKey(MixKey(position.BitboardOf(Color.White, PieceType.Pawn))
                    ^ position.BitboardOf(Color.Black, PieceType.Pawn))
               & (SearchState.CorrectionHistorySize - 1));
+
+    private static int NonPawnCorrectionIndex(Position position, Color pieceColor)
+    {
+        ulong h = MixKey(position.BitboardOf(pieceColor, PieceType.Knight) + 0x9E3779B97F4A7C15UL);
+        h = MixKey(h ^ position.BitboardOf(pieceColor, PieceType.Bishop));
+        h = MixKey(h ^ position.BitboardOf(pieceColor, PieceType.Rook));
+        h = MixKey(h ^ position.BitboardOf(pieceColor, PieceType.Queen));
+        h = MixKey(h ^ position.BitboardOf(pieceColor, PieceType.King));
+        return (((int)pieceColor * 2 + (int)position.Turn) * SearchState.CorrectionHistorySize) + (int)(h & (SearchState.CorrectionHistorySize - 1));
+    }
 
     private static ulong MixKey(ulong x)
     {

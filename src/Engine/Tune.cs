@@ -184,10 +184,10 @@ internal static class Tune
     // ===========================================================================
     // disabled
     // ===========================================================================
-    [Tune("ZT_ZOOM_COLD", 0, 1, 1, "zoom")] public static int ZoomCold = 0;
+    [Tune("ZT_ZOOM_COLD", 0, 1, 1, "zoom")] public static int ZoomCold = 1;
     [Tune("ZT_SEE_VERIFY", 0, 1, 1, "see")] public static int SeeVerify = 0;
     [Tune("ZT_LMR_BADCAP", 0, 3, 1, "lmr")] public static int LmrBadCap = 0;
-    [Tune("ZT_LMR_IMP", 0, 2, 1, "lmr-flags")] public static int LmrImp = 0;
+    [Tune("ZT_LMR_IMP", 0, 2, 1, "lmr-flags")] public static int LmrImp = 0; // cooked
     [Tune("ZT_LMR_NONIMP", 0, 2, 1, "lmr-flags")] public static int LmrNonImp = 0;
     [Tune("ZT_LMR_CHECK", 0, 2, 1, "lmr-flags")] public static int LmrGivesCheck = 0;
 

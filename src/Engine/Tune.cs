@@ -49,7 +49,7 @@ internal static class Tune
     // history pruning
     // ===========================================================================
     [Tune("ZT_HISTP_DEPTH", 2, 8, 1, "histprune")] public static int HistPruneMaxDepth = 5;
-    [Tune("ZT_HISTP_MULT", 1500, 7000, 200, "histprune")] public static int HistPruneMult = 3710;
+    [Tune("ZT_HISTP_MULT", 1500, 16000, 200, "histprune")] public static int HistPruneMult = 7000;
 
     // ===========================================================================
     // SEE pruning (captures)

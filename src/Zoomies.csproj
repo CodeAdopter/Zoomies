@@ -12,7 +12,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <RootNamespace>Zoomies</RootNamespace>
     <AssemblyName>zoomies</AssemblyName>
-    <Version>4.52</Version>
+    <Version>4.53</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 

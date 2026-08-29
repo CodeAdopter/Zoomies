@@ -75,7 +75,7 @@ internal static class Tune
     // ===========================================================================
     [Tune("ZT_LMR_BASE", 20, 120, 5, "lmr")] public static int LmrBase = 56;
     [Tune("ZT_LMR_DIV", 150, 400, 10, "lmr")] public static int LmrDiv = 263;
-    [Tune("ZT_LMR_HISTDIV", 4000, 16000, 400, "lmr")] public static int LmrHistDiv = 8250;
+    [Tune("ZT_LMR_HISTDIV", 4000, 24000, 400, "lmr")] public static int LmrHistDiv = 16000;
     [Tune("ZT_DODEEPER", 20, 120, 5, "lmr")] public static int DoDeeperMargin = 47;
 
     // ===========================================================================
@@ -168,28 +168,28 @@ internal static class Tune
     // ===========================================================================
     // locked
     // ===========================================================================
-    [Tune("ZT_BADCAP_DEMOTE", 0, 1, 1, "ordering", tunable: false)] public static int BadCapDemote = 1;
-    [Tune("ZT_COUNTERMOVE", 0, 1, 1, "ordering", tunable: false)] public static int CounterMove = 1;
-    [Tune("ZT_ZOOM_FROM", 0, 1, 1, "zoom", tunable: false)] public static int ZoomFrom = 1;
-    [Tune("ZT_SEE_EARLYEXIT", 0, 1, 1, "see", tunable: false)] public static int SeeEarlyExit = 1;
-    [Tune("ZT_INSTAMOVE", 0, 1, 1, "tm", tunable: false)] public static int Instamove = 1;
+    [Tune("ZT_BADCAP_DEMOTE", 0, 1, 1, "ordering")] public static int BadCapDemote = 1;
+    [Tune("ZT_COUNTERMOVE", 0, 1, 1, "ordering")] public static int CounterMove = 1;
+    [Tune("ZT_ZOOM_FROM", 0, 1, 1, "zoom")] public static int ZoomFrom = 1;
+    [Tune("ZT_SEE_EARLYEXIT", 0, 1, 1, "see")] public static int SeeEarlyExit = 1;
+    [Tune("ZT_INSTAMOVE", 0, 1, 1, "tm")] public static int Instamove = 1;
 
     // ===========================================================================
     // unshelved
     // ===========================================================================
     [Tune("ZT_R50_DAMP", 64, 512, 16, "eval")] public static int R50Damp = 258;
     [Tune("ZT_ASP_FH_REDUCE", 0, 4, 1, "aspiration")] public static int AspFailHighReduce = 2;
-    [Tune("ZT_ROOT_NODEORD", 0, 32768, 1024, "ordering")] public static int RootNodeOrd = 0;
+    [Tune("ZT_ZOOM_COLD", 0, 1, 1, "zoom")] public static int ZoomCold = 1;
 
     // ===========================================================================
     // disabled
     // ===========================================================================
-    [Tune("ZT_ZOOM_COLD", 0, 1, 1, "zoom")] public static int ZoomCold = 1;
     [Tune("ZT_SEE_VERIFY", 0, 1, 1, "see")] public static int SeeVerify = 0;
     [Tune("ZT_LMR_BADCAP", 0, 3, 1, "lmr")] public static int LmrBadCap = 0;
     [Tune("ZT_LMR_IMP", 0, 2, 1, "lmr-flags")] public static int LmrImp = 0; // cooked
     [Tune("ZT_LMR_NONIMP", 0, 2, 1, "lmr-flags")] public static int LmrNonImp = 0;
     [Tune("ZT_LMR_CHECK", 0, 2, 1, "lmr-flags")] public static int LmrGivesCheck = 0;
+    [Tune("ZT_ROOT_NODEORD", 0, 32768, 1024, "ordering")] public static int RootNodeOrd = 0;
 
     public readonly record struct Entry(FieldInfo Field, string Name, int Default, int Min, int Max, int Step, string Group, bool Tunable, bool HyperTune);
     private static readonly Entry[] Entries;

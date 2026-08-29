@@ -25,7 +25,11 @@ public static class Nnue
 
     public static void Load(string path)
     {
-        var bytes = System.IO.File.ReadAllBytes(path);
+        LoadBytes(System.IO.File.ReadAllBytes(path), path);
+    }
+
+    private static void LoadBytes(byte[] bytes, string path)
+    {
         var s = bytes.AsSpan();
         bool a2 = bytes.Length >= 20 && s[..8].SequenceEqual("ZOO768A2"u8);
         bool b1 = bytes.Length >= 20 && s[..8].SequenceEqual("ZOO768B1"u8);
@@ -86,9 +90,20 @@ public static class Nnue
         string? env = Environment.GetEnvironmentVariable("ZOOMIES_NNUE");
         string? pick = System.IO.File.Exists(beside) ? beside
                      : env != null && System.IO.File.Exists(env) ? env : null;
-        if (pick == null) return;
-        Load(pick);
-        Console.WriteLine($"info string nnue loaded from {pick} (L1={l1})");
+        if (pick != null)
+        {
+            Load(pick);
+            Console.WriteLine($"info string nnue loaded from {pick} (L1={l1})");
+            return;
+        }
+
+        var asm = typeof(Nnue).Assembly;
+        using var stream = asm.GetManifestResourceStream("best.nnue");
+        if (stream == null) return;
+        var buf = new byte[stream.Length];
+        stream.ReadExactly(buf);
+        LoadBytes(buf, "embedded:best.nnue");
+        Console.WriteLine($"info string nnue loaded from embedded best.nnue (L1={l1})");
     }
 
 

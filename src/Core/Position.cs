@@ -45,10 +45,6 @@ public class Position
 
     private ulong hash;
 
-    private int whiteEvaluation;
-
-    public int WhiteEvaluation => whiteEvaluation;
-
     public readonly UndoInfo[] History = new UndoInfo[4096];
 
     public ulong Checkers { get; internal set; }
@@ -90,7 +86,6 @@ public class Position
         pieceBB[(int)pc] |= bb;
         colorBB[((int)pc >> 3) & 1] |= bb;
         hash ^= Zobrist.Piece(pc, s);
-        whiteEvaluation += Psqt.WhitePov[((int)pc << 6) | (int)s];
     }
     private void RemovePiece(Square s)
     {
@@ -100,7 +95,6 @@ public class Position
         pieceBB[(int)pc] &= ~bb;
         colorBB[((int)pc >> 3) & 1] &= ~bb;
         board[(int)s] = Piece.NoPiece;
-        whiteEvaluation -= Psqt.WhitePov[((int)pc << 6) | (int)s];
     }
     private void MovePiece(Square from, Square to)
     {
@@ -118,13 +112,10 @@ public class Position
 
         pieceBB[(int)movingPiece] ^= fromTo;
         colorBB[((int)movingPiece >> 3) & 1] ^= fromTo;
-        int pm = (int)movingPiece << 6;
-        whiteEvaluation += Psqt.WhitePov[pm | (int)to] - Psqt.WhitePov[pm | (int)from];
         if (capturedPiece != Piece.NoPiece)
         {
             pieceBB[(int)capturedPiece] &= ~toBB;
             colorBB[((int)capturedPiece >> 3) & 1] &= ~toBB;
-            whiteEvaluation -= Psqt.WhitePov[((int)capturedPiece << 6) | (int)to];
         }
 
         board[(int)to] = movingPiece;
@@ -164,8 +155,6 @@ public class Position
         colorBB[((int)pc >> 3) & 1] ^= fromTo;
         board[(int)to] = pc;
         board[(int)from] = Piece.NoPiece;
-        int pmq = (int)pc << 6;
-        whiteEvaluation += Psqt.WhitePov[pmq | (int)to] - Psqt.WhitePov[pmq | (int)from];
     }
     private void PutPieceNoHash(Piece pc, Square s)
     {
@@ -173,7 +162,6 @@ public class Position
         ulong bb = 1UL << (int)s;
         pieceBB[(int)pc] |= bb;
         colorBB[((int)pc >> 3) & 1] |= bb;
-        whiteEvaluation += Psqt.WhitePov[((int)pc << 6) | (int)s];
     }
     private void RemovePieceNoHash(Square s)
     {
@@ -182,7 +170,6 @@ public class Position
         pieceBB[(int)pc] &= ~bb;
         colorBB[((int)pc >> 3) & 1] &= ~bb;
         board[(int)s] = Piece.NoPiece;
-        whiteEvaluation -= Psqt.WhitePov[((int)pc << 6) | (int)s];
     }
 
     private void RemovePieceKnownNoHash(Square s, Piece pc)
@@ -191,7 +178,6 @@ public class Position
         pieceBB[(int)pc] &= ~bb;
         colorBB[((int)pc >> 3) & 1] &= ~bb;
         board[(int)s] = Piece.NoPiece;
-        whiteEvaluation -= Psqt.WhitePov[((int)pc << 6) | (int)s];
     }
 
     private void MovePieceKnownCaptureNoHash(Square from, Square to, Piece captured)
@@ -205,9 +191,6 @@ public class Position
         colorBB[((int)captured >> 3) & 1] &= ~toBB;
         board[(int)to] = movingPiece;
         board[(int)from] = Piece.NoPiece;
-        int pmk = (int)movingPiece << 6;
-        whiteEvaluation += Psqt.WhitePov[pmk | (int)to] - Psqt.WhitePov[pmk | (int)from]
-             - Psqt.WhitePov[((int)captured << 6) | (int)to];
     }
     private void MovePieceNoHash(Square from, Square to)
     {
@@ -221,12 +204,9 @@ public class Position
         {
             pieceBB[(int)capturedPiece] &= ~toBB;
             colorBB[((int)capturedPiece >> 3) & 1] &= ~toBB;
-            whiteEvaluation -= Psqt.WhitePov[((int)capturedPiece << 6) | (int)to];
         }
         board[(int)to] = movingPiece;
         board[(int)from] = Piece.NoPiece;
-        int pmm = (int)movingPiece << 6;
-        whiteEvaluation += Psqt.WhitePov[pmm | (int)to] - Psqt.WhitePov[pmm | (int)from];
     }
     
     public Position(Position other)
@@ -237,7 +217,6 @@ public class Position
         sideToPlay = other.sideToPlay;
         gamePly = other.gamePly;
         hash = other.hash;
-        whiteEvaluation = other.whiteEvaluation;
         Array.Copy(other.History, History, gamePly + 1);
         Checkers = other.Checkers;
         Pinned = other.Pinned;
@@ -253,8 +232,6 @@ public class Position
         colorBB[((int)pc >> 3) & 1] ^= fromTo;
         board[(int)to] = pc;
         board[(int)from] = Piece.NoPiece;
-        int pm = (int)pc << 6;
-        whiteEvaluation += Psqt.WhitePov[pm | (int)to] - Psqt.WhitePov[pm | (int)from];
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -782,7 +759,6 @@ public class Position
         p.sideToPlay = Color.White;
         p.gamePly = 0;
         p.hash = 0;
-        p.whiteEvaluation = 0;
         p.Checkers = 0;
         p.Pinned = 0;
         p.History[0] = new UndoInfo();

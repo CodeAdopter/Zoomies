@@ -15,13 +15,13 @@ public static class Eval
 
     public static int Evaluate(Position pos)
     {
-        int cp = Nnue.Loaded ? Nnue.Evaluate(pos) : Taper(pos, pos.WhiteEvaluation);
+        int cp = Nnue.Loaded ? Nnue.Evaluate(pos) : EvaluateFromScratch(pos);
         if (R50DampK > 0)
             cp = cp * Math.Max(R50DampK - pos.History[pos.Ply].HalfMoveClock, 0) / R50DampK;
         return cp;
     }
 
-    public static int EvaluateScratch(Position pos)
+    public static int EvaluateFromScratch(Position pos)
     {
         int packed = 0;
         for (int c = 0; c < 2; c++)

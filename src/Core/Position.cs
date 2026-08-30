@@ -51,17 +51,151 @@ public class Position
 
     public ulong Pinned { get; internal set; }
 
-    private static readonly CastlingRights[] CastleClear = BuildCastleClear();
-    private static CastlingRights[] BuildCastleClear()
+    public static bool Chess960;
+
+    private readonly Square[] castleRookFrom = new Square[4];
+    private readonly Square[] castleKingTo = new Square[4];
+    private readonly Square[] castleRookTo = new Square[4];
+    private readonly ulong[] castleEmpty = new ulong[4];
+    private readonly ulong[] castleKingPath = new ulong[4];
+
+    private readonly CastlingRights[] castleClear = new CastlingRights[Types.SquareCount];
+
+    private static int CastleIndex(Color c, bool kingside) => ((int)c << 1) | (kingside ? 0 : 1);
+    private static CastlingRights CastleBit(int idx) => (CastlingRights)(1 << idx);
+
+    public Square CastleRookOrigin(Color c, bool kingside) => castleRookFrom[CastleIndex(c, kingside)];
+
+    public string FormatUci(Move m)
     {
-        var m = new CastlingRights[Types.SquareCount];
-        m[(int)Square.e1] = CastlingRights.White;
-        m[(int)Square.a1] = CastlingRights.WhiteOOO;
-        m[(int)Square.h1] = CastlingRights.WhiteOO;
-        m[(int)Square.e8] = CastlingRights.Black;
-        m[(int)Square.a8] = CastlingRights.BlackOOO;
-        m[(int)Square.h8] = CastlingRights.BlackOO;
-        return m;
+        if (Chess960 && m.Flags is MoveFlags.OO or MoveFlags.OOO)
+            return Types.SquareNames[(int)m.From] + Types.SquareNames[(int)CastleRookOrigin(sideToPlay, m.Flags == MoveFlags.OO)];
+        return m.ToString();
+    }
+
+    internal void CastleSquaresFrc(Color us, bool kingside, out int kingTo, out int rookFrom, out int rookTo)
+    {
+        int idx = CastleIndex(us, kingside);
+        kingTo = (int)castleKingTo[idx];
+        rookFrom = (int)castleRookFrom[idx];
+        rookTo = (int)castleRookTo[idx];
+    }
+
+    private void BuildCastleMeta(int idx, Square kingFrom, Square rookFrom, bool kingside)
+    {
+        Rank rank = Types.RankOf(kingFrom);
+        Square kingTo = Types.CreateSquare(kingside ? File.FileG : File.FileC, rank);
+        Square rookTo = Types.CreateSquare(kingside ? File.FileF : File.FileD, rank);
+
+        castleRookFrom[idx] = rookFrom;
+        castleKingTo[idx] = kingTo;
+        castleRookTo[idx] = rookTo;
+
+        ulong betweenKing = kingFrom == kingTo ? 0 : Tables.SquaresBetween[((int)kingFrom << 6) | (int)kingTo];
+        ulong betweenRook = rookFrom == rookTo ? 0 : Tables.SquaresBetween[((int)rookFrom << 6) | (int)rookTo];
+        ulong empty = (betweenKing | (1UL << (int)kingTo) | betweenRook | (1UL << (int)rookTo)) & ~(1UL << (int)kingFrom) & ~(1UL << (int)rookFrom);
+
+        castleEmpty[idx] = empty;
+        castleKingPath[idx] = betweenKing | (1UL << (int)kingTo);
+
+        castleClear[(int)rookFrom] |= CastleBit(idx);
+        castleClear[(int)kingFrom] |= idx < 2 ? CastlingRights.White : CastlingRights.Black;
+    }
+
+    private Square FindCastleRook(Piece rook, int rank, int kingFile, bool kingside)
+    {
+        if (kingside)
+        {
+            for (int f = 7; f > kingFile; f--)
+            {
+                var sq = (Square)(rank * 8 + f);
+                if (At(sq) == rook) return sq;
+            }
+        }
+        else
+        {
+            for (int f = 0; f < kingFile; f++)
+            {
+                var sq = (Square)(rank * 8 + f);
+                if (At(sq) == rook) return sq;
+            }
+        }
+        return Square.NoSquare;
+    }
+
+    internal void EmitCastlesFrc<TSink>(Color us, Square kingFrom, ulong all, CastlingRights rights, ref TSink sink) where TSink : IMoveSink, allows ref struct
+    {
+        if (us == Color.White)
+        {
+            if ((rights & CastlingRights.WhiteOO) != 0) TryEmitCastleFrc(0, us, kingFrom, MoveFlags.OO, all, ref sink);
+            if ((rights & CastlingRights.WhiteOOO) != 0) TryEmitCastleFrc(1, us, kingFrom, MoveFlags.OOO, all, ref sink);
+        }
+        else
+        {
+            if ((rights & CastlingRights.BlackOO) != 0) TryEmitCastleFrc(2, us, kingFrom, MoveFlags.OO, all, ref sink);
+            if ((rights & CastlingRights.BlackOOO) != 0) TryEmitCastleFrc(3, us, kingFrom, MoveFlags.OOO, all, ref sink);
+        }
+    }
+
+    private void TryEmitCastleFrc<TSink>(int idx, Color us, Square kingFrom, MoveFlags flag, ulong all, ref TSink sink) where TSink : IMoveSink, allows ref struct
+    {
+        if ((all & castleEmpty[idx]) != 0) 
+            return;
+
+        Color them = us.Flip();
+        Square kingTo = castleKingTo[idx];
+
+        ulong baseOcc = (all & ~(1UL << (int)kingFrom) & ~(1UL << (int)castleRookFrom[idx])) | (1UL << (int)castleRookTo[idx]);
+
+        ulong path = castleKingPath[idx];
+        while (path != 0)
+        {
+            Square s = Bitboard.PopLsb(ref path);
+            if (AttackersFrom(them, s, baseOcc | (1UL << (int)s)) != 0) return;
+        }
+
+        sink.One(kingFrom, kingTo, flag);
+    }
+
+    private void DoCastleFrc(Color us, Square kingFrom, int idx, bool hashed)
+    {
+        Piece king = Types.MakePiece(us, PieceType.King);
+        Piece rook = Types.MakePiece(us, PieceType.Rook);
+
+        if (hashed)
+        {
+            RemovePiece(kingFrom);
+            RemovePiece(castleRookFrom[idx]);
+            PutPiece(king, castleKingTo[idx]);
+            PutPiece(rook, castleRookTo[idx]);
+        }
+        else
+        {
+            RemovePieceNoHash(kingFrom);
+            RemovePieceNoHash(castleRookFrom[idx]);
+            PutPieceNoHash(king, castleKingTo[idx]);
+            PutPieceNoHash(rook, castleRookTo[idx]);
+        }
+    }
+
+    private void UndoCastleFrc(Color us, Square kingFrom, int idx, bool hashed)
+    {
+        Piece king = Types.MakePiece(us, PieceType.King);
+        Piece rook = Types.MakePiece(us, PieceType.Rook);
+        if (hashed)
+        {
+            RemovePiece(castleKingTo[idx]);
+            RemovePiece(castleRookTo[idx]);
+            PutPiece(king, kingFrom);
+            PutPiece(rook, castleRookFrom[idx]);
+        }
+        else
+        {
+            RemovePieceNoHash(castleKingTo[idx]);
+            RemovePieceNoHash(castleRookTo[idx]);
+            PutPieceNoHash(king, kingFrom);
+            PutPieceNoHash(rook, castleRookFrom[idx]);
+        }
     }
 
     public Position()
@@ -220,6 +354,12 @@ public class Position
         Array.Copy(other.History, History, gamePly + 1);
         Checkers = other.Checkers;
         Pinned = other.Pinned;
+        Array.Copy(other.castleRookFrom, castleRookFrom, 4);
+        Array.Copy(other.castleKingTo, castleKingTo, 4);
+        Array.Copy(other.castleRookTo, castleRookTo, 4);
+        Array.Copy(other.castleEmpty, castleEmpty, 4);
+        Array.Copy(other.castleKingPath, castleKingPath, 4);
+        Array.Copy(other.castleClear, castleClear, Types.SquareCount);
     }
 
     private void MovePieceQuiet(Square from, Square to)
@@ -316,7 +456,7 @@ public class Position
             History[gamePly].HalfMoveClock++;
         }
 
-        History[gamePly].Castling &= ~(CastleClear[(int)m.From] | CastleClear[(int)m.To]);
+        History[gamePly].Castling &= ~(castleClear[(int)m.From] | castleClear[(int)m.To]);
 
         switch (type)
         {
@@ -331,7 +471,10 @@ public class Position
                 break;
 
             case MoveFlags.OO:
-                if (us == Color.White)
+                if (Chess960){
+                    DoCastleFrc(us, m.From, CastleIndex(us, true), hashed: true);
+                }
+                else if (us == Color.White)
                 {
                     MovePieceQuiet(Square.e1, Square.g1);
                     MovePieceQuiet(Square.h1, Square.f1);
@@ -344,7 +487,11 @@ public class Position
                 break;
 
             case MoveFlags.OOO:
-                if (us == Color.White)
+                if (Chess960)
+                {
+                    DoCastleFrc(us, m.From, CastleIndex(us, false), hashed: true);
+                }
+                else if (us == Color.White)
                 {
                     MovePieceQuiet(Square.e1, Square.c1);
                     MovePieceQuiet(Square.a1, Square.d1);
@@ -436,7 +583,8 @@ public class Position
                 break;
 
             case MoveFlags.OO:
-                if (us == Color.White)
+                if (Chess960) UndoCastleFrc(us, m.From, CastleIndex(us, true), hashed: true);
+                else if (us == Color.White)
                 {
                     MovePieceQuiet(Square.g1, Square.e1);
                     MovePieceQuiet(Square.f1, Square.h1);
@@ -449,7 +597,8 @@ public class Position
                 break;
 
             case MoveFlags.OOO:
-                if (us == Color.White)
+                if (Chess960) UndoCastleFrc(us, m.From, CastleIndex(us, false), hashed: true);
+                else if (us == Color.White)
                 {
                     MovePieceQuiet(Square.c1, Square.e1);
                     MovePieceQuiet(Square.d1, Square.a1);
@@ -508,7 +657,7 @@ public class Position
         var from = m.From;
         var to = m.To;
 
-        ref CastlingRights cc = ref MemoryMarshal.GetArrayDataReference(CastleClear);
+        ref CastlingRights cc = ref MemoryMarshal.GetArrayDataReference(castleClear);
         History[gamePly].Castling = History[gamePly - 1].Castling & ~(Unsafe.Add(ref cc, (int)from) | Unsafe.Add(ref cc, (int)to));
         History[gamePly].EnPassantSquare = Square.NoSquare;
         History[gamePly].Captured = Piece.NoPiece;
@@ -524,11 +673,13 @@ public class Position
                     (Square)((int)from + (int)Types.RelativeDir(us, Direction.North));
                 break;
             case MoveFlags.OO:
-                if (us == Color.White) { MovePieceQuietNoHash(Square.e1, Square.g1); MovePieceQuietNoHash(Square.h1, Square.f1); }
+                if (Chess960) DoCastleFrc(us, from, CastleIndex(us, true), hashed: false);
+                else if (us == Color.White) { MovePieceQuietNoHash(Square.e1, Square.g1); MovePieceQuietNoHash(Square.h1, Square.f1); }
                 else { MovePieceQuietNoHash(Square.e8, Square.g8); MovePieceQuietNoHash(Square.h8, Square.f8); }
                 break;
             case MoveFlags.OOO:
-                if (us == Color.White) { MovePieceQuietNoHash(Square.e1, Square.c1); MovePieceQuietNoHash(Square.a1, Square.d1); }
+                if (Chess960) DoCastleFrc(us, from, CastleIndex(us, false), hashed: false);
+                else if (us == Color.White) { MovePieceQuietNoHash(Square.e1, Square.c1); MovePieceQuietNoHash(Square.a1, Square.d1); }
                 else { MovePieceQuietNoHash(Square.e8, Square.c8); MovePieceQuietNoHash(Square.a8, Square.d8); }
                 break;
             case MoveFlags.EnPassant:
@@ -595,11 +746,13 @@ public class Position
                 MovePieceQuietNoHash(to, from);
                 break;
             case MoveFlags.OO:
-                if (us == Color.White) { MovePieceQuietNoHash(Square.g1, Square.e1); MovePieceQuietNoHash(Square.f1, Square.h1); }
+                if (Chess960) UndoCastleFrc(us, from, CastleIndex(us, true), hashed: false);
+                else if (us == Color.White) { MovePieceQuietNoHash(Square.g1, Square.e1); MovePieceQuietNoHash(Square.f1, Square.h1); }
                 else { MovePieceQuietNoHash(Square.g8, Square.e8); MovePieceQuietNoHash(Square.f8, Square.h8); }
                 break;
             case MoveFlags.OOO:
-                if (us == Color.White) { MovePieceQuietNoHash(Square.c1, Square.e1); MovePieceQuietNoHash(Square.d1, Square.a1); }
+                if (Chess960) UndoCastleFrc(us, from, CastleIndex(us, false), hashed: false);
+                else if (us == Color.White) { MovePieceQuietNoHash(Square.c1, Square.e1); MovePieceQuietNoHash(Square.d1, Square.a1); }
                 else { MovePieceQuietNoHash(Square.c8, Square.e8); MovePieceQuietNoHash(Square.d8, Square.a8); }
                 break;
             case MoveFlags.EnPassant:
@@ -732,11 +885,18 @@ public class Position
         {
             fen.Append('-');
         }
+        else if (Chess960)
+        {
+            if ((rights & CastlingRights.WhiteOO)  != 0) fen.Append((char)('A' + (int)Types.FileOf(castleRookFrom[0])));
+            if ((rights & CastlingRights.WhiteOOO) != 0) fen.Append((char)('A' + (int)Types.FileOf(castleRookFrom[1])));
+            if ((rights & CastlingRights.BlackOO)  != 0) fen.Append((char)('a' + (int)Types.FileOf(castleRookFrom[2])));
+            if ((rights & CastlingRights.BlackOOO) != 0) fen.Append((char)('a' + (int)Types.FileOf(castleRookFrom[3])));
+        }
         else
         {
-            if ((rights & CastlingRights.WhiteOO) != 0) fen.Append('K');
+            if ((rights & CastlingRights.WhiteOO)  != 0) fen.Append('K');
             if ((rights & CastlingRights.WhiteOOO) != 0) fen.Append('Q');
-            if ((rights & CastlingRights.BlackOO) != 0) fen.Append('k');
+            if ((rights & CastlingRights.BlackOO)  != 0) fen.Append('k');
             if ((rights & CastlingRights.BlackOOO) != 0) fen.Append('q');
         }
         fen.Append(' ');
@@ -799,15 +959,58 @@ public class Position
         }
 
         p.History[p.gamePly].Castling = CastlingRights.None;
+        Array.Clear(p.castleClear, 0, Types.SquareCount);
+        for (int i = 0; i < 4; i++)
+        {
+            p.castleRookFrom[i] = Square.NoSquare;
+            p.castleKingTo[i] = Square.NoSquare;
+            p.castleRookTo[i] = Square.NoSquare;
+            p.castleEmpty[i] = 0;
+            p.castleKingPath[i] = 0;
+        }
+
+        Square wK = Bitboard.Bsf(p.BitboardOf(Color.White, PieceType.King));
+        Square bK = Bitboard.Bsf(p.BitboardOf(Color.Black, PieceType.King));
+
         while (fenIdx < fen.Length && fen[fenIdx] != ' ')
         {
-            switch (fen[fenIdx++])
+            char ch = fen[fenIdx++];
+            if (ch == '-') continue;
+
+            Color c = char.IsUpper(ch) ? Color.White : Color.Black;
+            Square k = c == Color.White ? wK : bK;
+            if (k == Square.NoSquare) continue;
+
+            int rank = (int)Types.RankOf(k);
+            int kingFile = (int)Types.FileOf(k);
+            Piece rookPiece = Types.MakePiece(c, PieceType.Rook);
+            char up = char.ToUpperInvariant(ch);
+
+            Square rookFrom;
+            bool kingside;
+            if (up == 'K')
             {
-                case 'K': p.History[p.gamePly].Castling |= CastlingRights.WhiteOO; break;
-                case 'Q': p.History[p.gamePly].Castling |= CastlingRights.WhiteOOO; break;
-                case 'k': p.History[p.gamePly].Castling |= CastlingRights.BlackOO; break;
-                case 'q': p.History[p.gamePly].Castling |= CastlingRights.BlackOOO; break;
+                kingside = true;
+                rookFrom = p.FindCastleRook(rookPiece, rank, kingFile, true);
             }
+            else if (up == 'Q')
+            {
+                kingside = false;
+                rookFrom = p.FindCastleRook(rookPiece, rank, kingFile, false);
+            }
+            else if (up >= 'A' && up <= 'H')
+            {
+                int file = up - 'A';
+                rookFrom = (Square)(rank * 8 + file);
+                kingside = file > kingFile;
+            }
+            else continue;
+
+            if (rookFrom == Square.NoSquare) continue;
+
+            int idx = CastleIndex(c, kingside);
+            p.History[p.gamePly].Castling |= CastleBit(idx);
+            p.BuildCastleMeta(idx, k, rookFrom, kingside);
         }
 
         if (fenIdx < fen.Length) fenIdx++;

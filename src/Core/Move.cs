@@ -154,7 +154,7 @@ public static class MoveGeneration
         ulong allNoKing = all ^ (1UL << (int)ourKing);
 
         ulong kingTargets = Tables.KingAttacks(ourKing) & ~usBb;
-        if (kingTargets != 0 || (castling != CastlingRights.None && AnyCastleCorridorClear(usColor, all, castling)))
+        if (kingTargets != 0 || (!Position.Chess960 && castling != CastlingRights.None && AnyCastleCorridorClear(usColor, all, castling)))
         {
             b1 = theirDiagSliders;
             while (b1 != 0) danger |= Tables.BishopAttacks(Bitboard.PopLsb(ref b1), allNoKing);
@@ -246,7 +246,10 @@ public static class MoveGeneration
 
                 if (castling != CastlingRights.None)
                 {
-                    HandleCastlingInto(usColor, all, danger, castling, ref sink);
+                    if (Position.Chess960)
+                        pos.EmitCastlesFrc(usColor, ourKing, all, castling, ref sink);
+                    else
+                        HandleCastlingInto(usColor, all, danger, castling, ref sink);
                 }
 
                 if (pinned != 0)

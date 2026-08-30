@@ -386,7 +386,7 @@ public sealed class Search
             if (!legal) break;
 
             if (count > 0) line.Append(' ');
-            line.Append(current);
+            line.Append(position.FormatUci(current));
             position.Play(position.Turn, current);
             played[count++] = current;
 

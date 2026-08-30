@@ -86,8 +86,7 @@ public static class Uci
                     activeSearchThread = new Thread(() =>
                     {
                         Move bestMove = search.FindBestMove(position, searchLimits);
-                        Console.WriteLine(
-                            $"bestmove {(bestMove.EncodedValue == 0 ? "0000" : bestMove)}");
+                        Console.WriteLine($"bestmove {(bestMove.EncodedValue == 0 ? "0000" : position.FormatUci(bestMove))}");
                     })
                     {
                         IsBackground = true,
@@ -130,6 +129,7 @@ public static class Uci
         Console.WriteLine($"option name Threads type spin default 1 min 1 max {MaxThreads}");
         Console.WriteLine($"option name Move Overhead type spin default {TimeManager.MoveOverheadMilliseconds} min 0 max 5000");
         Console.WriteLine("option name Clear Hash type button");
+        Console.WriteLine($"option name UCI_Chess960 type check default {(Position.Chess960 ? "true" : "false")}");
         foreach (Tune.Entry e in Tune.All)
             Console.WriteLine($"option name {e.Name} type spin default {e.Default} min {e.Min} max {e.Max}");
         Console.WriteLine("uciok");
@@ -165,6 +165,10 @@ public static class Uci
 
             case "clear hash":
                 search.ClearHash();
+                break;
+
+            case "uci_chess960":
+                Position.Chess960 = value is not null && value.Equals("true", StringComparison.OrdinalIgnoreCase);
                 break;
 
             default:
@@ -218,7 +222,7 @@ public static class Uci
 
         for (int i = 0; i < moveCount; i++)
         {
-            if (moves[i].ToString() == uciMove)
+            if (position.FormatUci(moves[i]) == uciMove || moves[i].ToString() == uciMove)
                 return moves[i];
         }
 

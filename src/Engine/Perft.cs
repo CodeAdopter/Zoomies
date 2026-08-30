@@ -230,6 +230,37 @@ public static class Perft
         Console.WriteLine($"  ---- total {totalNodes,14:n0} nodes  {totalMs,6} ms  {Log.Nps(totalNodes, totalMs),12}   [{(allOk ? "all correct" : "MISMATCH!")}]");
     }
 
+    public static void FrcCheck(CancellationToken ct = default)
+    {
+        bool previous = Position.Chess960;
+        Position.Chess960 = true;
+        try
+        {
+            (string name, string fen, int depth, long expected)[] cases =
+            [
+                ("FRC_518", Fens.Frc518, 5, 4_865_609),
+                ("FRC_518", Fens.Frc518, 6, 119_060_324),
+                ("FRC_1", Fens.Frc960a, 5, 4_863_733),
+                ("FRC_450", Fens.Frc960b, 5, 5_004_807),
+                ("FRC_900", Fens.Frc960c, 5, 3_914_548),
+            ];
+
+            var pos = new Position();
+            bool allOk = true;
+            foreach (var (name, fen, depth, expected) in cases)
+            {
+                if (ct.IsCancellationRequested) { Console.WriteLine("cancelled."); return; }
+                Position.Set(fen, pos);
+                long nodes = CountFast(pos, depth);
+                bool ok = nodes == expected;
+                allOk &= ok;
+                Console.WriteLine($"{(ok ? "ok" : "fail")} {name} d{depth}: {nodes:n0} (expected {expected:n0})"); 
+            }
+            Console.WriteLine(allOk ? "ok" : "fail");
+        }
+        finally { Position.Chess960 = previous; }
+    }
+
     public static void Bench(string fen, int maxDepth, CancellationToken ct = default)
     {
         var pos = new Position();

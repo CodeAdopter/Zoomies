@@ -163,6 +163,24 @@ public static class Nnue
     private static int KingSqOf(Position pos, int p) =>
         BitOperations.TrailingZeroCount(pos.BitboardOf((Color)p, PieceType.King));
 
+    private static void CastleSquares(Position pos, Color us, MoveFlags flags, int from, out int kFrom, out int kTo, out int rFrom, out int rTo)
+    {
+        bool kingside = flags == MoveFlags.OO;
+        if (Position.Chess960)
+        {
+            pos.CastleSquaresFrc(us, kingside, out kTo, out rFrom, out rTo);
+            kFrom = from;
+        }
+        else
+        {
+            int e = us == Color.White ? (int)Square.e1 : (int)Square.e8;
+            kFrom = e;
+            kTo = kingside ? e + 2 : e - 2;
+            rFrom = kingside ? e + 3 : e - 4;
+            rTo = kingside ? e + 1 : e - 1;
+        }
+    }
+
     public static void OnPlay(Position pos, Color us, Move m)
     {
         var st = pos.NnueSt!;
@@ -191,9 +209,10 @@ public static class Nnue
             if (kingMove)
             {
                 int usI = (int)us;
-                int e = us == Color.White ? (int)Square.e1 : (int)Square.e8;
-                int kTo = m.Flags == MoveFlags.OO ? e + 2 : m.Flags == MoveFlags.OOO ? e - 2 : to;
-                int kFrom = m.Flags is MoveFlags.OO or MoveFlags.OOO ? e : from;
+                int kFrom, kTo;
+                if (m.Flags is MoveFlags.OO or MoveFlags.OOO)
+                    CastleSquares(pos, us, m.Flags, from, out kFrom, out kTo, out _, out _);
+                else { kFrom = from; kTo = to; }
                 if (BucketBase(usI, kFrom) != BucketBase(usI, kTo))
                     crossed = usI;
             }
@@ -227,21 +246,13 @@ public static class Nnue
                     break;
                 }
                 case MoveFlags.OO:
-                {
-                    int k = (int)Types.MakePiece(us, PieceType.King), r = (int)Types.MakePiece(us, PieceType.Rook);
-                    int e = us == Color.White ? (int)Square.e1 : (int)Square.e8;
-                    AddAddSubSubFrom(half, srcHalf,
-                        w.Slice(Row(k, e + 2), n), w.Slice(Row(r, e + 1), n),  // k e->g r h->f
-                        w.Slice(Row(k, e), n), w.Slice(Row(r, e + 3), n));
-                    break;
-                }
                 case MoveFlags.OOO:
                 {
                     int k = (int)Types.MakePiece(us, PieceType.King), r = (int)Types.MakePiece(us, PieceType.Rook);
-                    int e = us == Color.White ? (int)Square.e1 : (int)Square.e8;
+                    CastleSquares(pos, us, m.Flags, from, out int kF, out int kT, out int rF, out int rT);
                     AddAddSubSubFrom(half, srcHalf,
-                        w.Slice(Row(k, e - 2), n), w.Slice(Row(r, e - 1), n),  // k e->c, r a->d
-                        w.Slice(Row(k, e), n), w.Slice(Row(r, e - 4), n));
+                        w.Slice(Row(k, kT), n), w.Slice(Row(r, rT), n),
+                        w.Slice(Row(k, kF), n), w.Slice(Row(r, rF), n));
                     break;
                 }
                 case MoveFlags.EnPassant:

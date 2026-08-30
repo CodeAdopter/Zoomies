@@ -33,6 +33,10 @@ if (args.Length > 0)
             Perft.Suite();
             return;
 
+        case "frcperft":
+            Perft.FrcCheck();
+            return;
+
         case "datagen":
             Environment.Exit(Zoomies.Training.Datagen.Cli(args));
             return;

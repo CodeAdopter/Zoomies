@@ -81,10 +81,10 @@ internal static class Tune
     // ===========================================================================
     // eval gradient lmr
     // ===========================================================================
-    [HyperTune][Tune("ZT_LMR_GRAD_GOOD", 0, 400, 10, "lmrgrad")] public static int LmrGradGood = 80;
-    [HyperTune][Tune("ZT_LMR_GRAD_BAD", 0, 600, 15, "lmrgrad")] public static int LmrGradBad = 120;
-    [HyperTune][Tune("ZT_LMR_GRAD_MINDEPTH", 3, 12, 1, "lmrgrad")] public static int LmrGradMinDepth = 7;
-    [HyperTune][Tune("ZT_LMR_GRAD_HISTMAX", 0, 24000, 500, "lmrgrad")] public static int LmrGradHistMax = 8000;
+    [Tune("ZT_LMR_GRAD_GOOD", 0, 400, 10, "lmrgrad")] public static int LmrGradGood = 80;
+    [Tune("ZT_LMR_GRAD_BAD", 0, 600, 15, "lmrgrad")] public static int LmrGradBad = 120;
+    [Tune("ZT_LMR_GRAD_MINDEPTH", 3, 12, 1, "lmrgrad")] public static int LmrGradMinDepth = 7;
+    [Tune("ZT_LMR_GRAD_HISTMAX", 0, 24000, 500, "lmrgrad")] public static int LmrGradHistMax = 8000;
 
     // ===========================================================================
     // adaptive reduction inputs
@@ -106,6 +106,11 @@ internal static class Tune
     // ===========================================================================
     [Tune("ZT_MAO_FLAT", 0, 300, 12, "zoom")] public static int MaoFlat = 99;
     [Tune("ZT_MAO_WEIGHT", 0, 400, 15, "zoom")] public static int MaoWeight = 147;
+
+    // ===========================================================================
+    // lazy quiet scoring
+    // ===========================================================================
+    [Tune("ZT_LAZY_QSCORE", 0, 1, 1, "ordering")] public static int LazyQuietScore = 1;
 
     // ===========================================================================
     // internal iterative reduction

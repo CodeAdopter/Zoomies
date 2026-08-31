@@ -8,8 +8,7 @@ internal static class Pruning
     private static readonly int[] LmpThreshold = [0, 5, 8, 12, 18, 26, 36];
     private static int LmpMaxDepth;
 
-    private static int LmpBudget(int depth, bool improving) =>
-        Math.Max(LmpThreshold[depth] + (improving ? Tune.LmpImp : -Tune.LmpNonImp) - depth, 0);
+    private static int LmpBudget(int depth, bool improving) => Math.Max(LmpThreshold[depth] + (improving ? Tune.LmpImp : -Tune.LmpNonImp) - depth, 0);
 
     private static int SingularMinDepth;
     private static int SingularMargin;
@@ -36,6 +35,7 @@ internal static class Pruning
     private static int LmrGradBad;
     private static int LmrGradMinDepth;
     private static int LmrGradHistMax;
+    private static bool LazyQuietScoring;
 
     private static readonly int[] LmrTable = new int[64 * 64];
 
@@ -85,6 +85,7 @@ internal static class Pruning
         MaoFlat = Tune.MaoFlat;
         MaoWeight = Tune.MaoWeight;
         RootNodeOrd = Tune.RootNodeOrd;
+        LazyQuietScoring = Tune.LazyQuietScore != 0;
         OutpostReduction = Tune.Outpost;
         NonPawnCorrWeight = Tune.CorrNonPawn;
         LmrGradGood = Tune.LmrGradGood;
@@ -333,13 +334,11 @@ internal static class Pruning
         bool rootNodeOrdering = RootNodeOrd != 0 && ply == 0 && state.RootEffortTotal > 0;
 
         Span<int> quietScores = stackalloc int[256];
-        for (int i = quietStart; i < quietEnd; i++)
+        bool quietsScored = false;
+        if (!LazyQuietScoring)
         {
-            quietScores[i] = QuietHistoryScore(state, position, sideToMove, moves[i], previous1, previous2, pawnHistoryBase);
-            if (zoomMask != 0 && InZone(zoomMask, moves[i]))
-                quietScores[i] += MaoFlat + (MaoWeight != 0 ? MaoWeight * MaoPieceWeight(position, moves[i]) / 256 : 0);
-            if (rootNodeOrdering)
-                quietScores[i] += (int)(state.RootEffortFor(moves[i]) * RootNodeOrd / state.RootEffortTotal);
+            ScoreQuiets(state, position, sideToMove, moves, quietScores, quietStart, quietEnd, previous1, previous2, pawnHistoryBase, zoomMask, rootNodeOrdering);
+            quietsScored = true;
         }
         int alphaOriginal = alpha;
         int bestScore = -SearchState.Infinity;
@@ -356,6 +355,12 @@ internal static class Pruning
         {
             if (i >= quietStart && i < quietEnd)
             {
+                if (!quietsScored)
+                {
+                    quietsScored = true;
+                    ScoreQuiets(state, position, sideToMove, moves, quietScores, quietStart, quietEnd, previous1, previous2, pawnHistoryBase, zoomMask, rootNodeOrdering);
+                }
+
                 int best = i;
                 for (int j = i + 1; j < quietEnd; j++)
                     if (quietScores[j] > quietScores[best]) best = j;
@@ -729,6 +734,18 @@ internal static class Pruning
     {
         ulong pawns = MixKey(MixKey(position.BitboardOf(Color.White, PieceType.Pawn)) ^ position.BitboardOf(Color.Black, PieceType.Pawn));
         return (int)(pawns & (SearchState.PawnHistorySize - 1)) * SearchState.PieceToCount;
+    }
+
+    private static void ScoreQuiets(SearchState state, Position position, Color side, Span<Move> moves, Span<int> quietScores, int quietStart, int quietEnd, int previous1, int previous2, int pawnHistoryBase, ulong zoomMask, bool rootNodeOrdering)
+    {
+        for (int i = quietStart; i < quietEnd; i++)
+        {
+            quietScores[i] = QuietHistoryScore(state, position, side, moves[i], previous1, previous2, pawnHistoryBase);
+            if (zoomMask != 0 && InZone(zoomMask, moves[i]))
+                quietScores[i] += MaoFlat + (MaoWeight != 0 ? MaoWeight * MaoPieceWeight(position, moves[i]) / 256 : 0);
+            if (rootNodeOrdering)
+                quietScores[i] += (int)(state.RootEffortFor(moves[i]) * RootNodeOrd / state.RootEffortTotal);
+        }
     }
 
     private static int QuietHistoryScore(

@@ -90,7 +90,8 @@ internal static class Tune
     // zoom
     // ===========================================================================
     [Tune("ZT_ZOOM", 0, 3, 1, "zoom")] public static int Zoom = 1;
-    [Tune("ZT_ZOOM_MINDEPTH", 4, 14, 1, "zoom")] public static int ZoomMinDepth = 9;
+    [Tune("ZT_ZOOM_MINDEPTH", 4, 14, 1, "zoom")] public static int ZoomMinDepth = 10;
+    [Tune("ZT_ZOOM_COLD", 0, 1, 1, "zoom")] public static int ZoomCold = 1;
 
     // ===========================================================================
     // mutual attack ordering
@@ -179,7 +180,6 @@ internal static class Tune
     // ===========================================================================
     [Tune("ZT_R50_DAMP", 64, 512, 16, "eval")] public static int R50Damp = 258;
     [Tune("ZT_ASP_FH_REDUCE", 0, 4, 1, "aspiration")] public static int AspFailHighReduce = 2;
-    [Tune("ZT_ZOOM_COLD", 0, 1, 1, "zoom")] public static int ZoomCold = 1;
 
     // ===========================================================================
     // disabled

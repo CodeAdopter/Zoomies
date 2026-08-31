@@ -235,10 +235,8 @@ public sealed class Search
         Move previousBest = default;
         int stability = 0;
 
-        for (int depth = 1; depth <= maxDepth; depth++)
+        for (int depth = isMain ? 1 : 1 + (threadIndex & 1); depth <= maxDepth; depth++)
         {
-                continue;
-
             st.RootDepth = depth;
             long iterationStartNodes = st.NodeCount;
             st.BestMoveEffortNodes = 0;

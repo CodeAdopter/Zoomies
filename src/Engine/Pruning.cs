@@ -234,6 +234,7 @@ internal static class Pruning
             int reduction = Tune.NmpBase + depth / Tune.NmpDiv;
             state.PlayedPieceTo[ply] = -1;
             position.MakeNullMove();
+            state.Tt.Prefetch(position.History[position.Ply].Hash);
             int nullScore = -AlphaBeta(state, position, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false, !cutNode);
             position.UnmakeNullMove();
 
@@ -504,6 +505,7 @@ internal static class Pruning
             long rootNodesBefore = ply == 0 ? state.NodeCount : 0;
             state.PlayedPieceTo[ply] = ((int)position.At(move.From) << 6) | (int)move.To;
             position.Play(sideToMove, move);
+            state.Tt.Prefetch(position.History[position.Ply].Hash);
 
             // principal variation search
             int score;

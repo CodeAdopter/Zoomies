@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics.X86;
 
 namespace Zoomies.Engine;
 
@@ -69,6 +70,13 @@ public sealed class TranspositionTable
         | ((ulong)depth << 32)
         | ((ulong)(uint)((int)flag | (gen << 2)) << 40)
         | ((wasPv ? 1UL : 0UL) << 48);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public unsafe void Prefetch(ulong key)
+    {
+        if (Sse.IsSupported)
+            Sse.Prefetch0(Unsafe.AsPointer(ref table[key & mask & ~1UL]));
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Probe(ulong key, out Entry entry)

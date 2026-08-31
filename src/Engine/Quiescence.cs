@@ -182,6 +182,7 @@ internal static class Quiescence
             }
 
             position.Play(sideToMove, move);
+            state.Tt.Prefetch(position.History[position.Ply].Hash);
             searchedMoves++;
             state.Stats.QMoveSearched();
             int score = -Search(state, position, -beta, -alpha, ply + 1);

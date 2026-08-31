@@ -79,6 +79,14 @@ internal static class Tune
     [Tune("ZT_DODEEPER", 20, 120, 5, "lmr")] public static int DoDeeperMargin = 47;
 
     // ===========================================================================
+    // eval gradient lmr
+    // ===========================================================================
+    [HyperTune][Tune("ZT_LMR_GRAD_GOOD", 0, 400, 10, "lmrgrad")] public static int LmrGradGood = 80;
+    [HyperTune][Tune("ZT_LMR_GRAD_BAD", 0, 600, 15, "lmrgrad")] public static int LmrGradBad = 120;
+    [HyperTune][Tune("ZT_LMR_GRAD_MINDEPTH", 3, 12, 1, "lmrgrad")] public static int LmrGradMinDepth = 7;
+    [HyperTune][Tune("ZT_LMR_GRAD_HISTMAX", 0, 24000, 500, "lmrgrad")] public static int LmrGradHistMax = 8000;
+
+    // ===========================================================================
     // adaptive reduction inputs
     // ===========================================================================
     [Tune("ZT_LMR_TTPV", 0, 2, 1, "lmr-flags")] public static int LmrTtPv = 1;

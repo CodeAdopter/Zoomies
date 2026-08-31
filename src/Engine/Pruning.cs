@@ -32,6 +32,10 @@ internal static class Pruning
     private static int RootNodeOrd;
     private static int OutpostReduction;
     private static int NonPawnCorrWeight;
+    private static int LmrGradGood;
+    private static int LmrGradBad;
+    private static int LmrGradMinDepth;
+    private static int LmrGradHistMax;
 
     private static readonly int[] LmrTable = new int[64 * 64];
 
@@ -83,6 +87,10 @@ internal static class Pruning
         RootNodeOrd = Tune.RootNodeOrd;
         OutpostReduction = Tune.Outpost;
         NonPawnCorrWeight = Tune.CorrNonPawn;
+        LmrGradGood = Tune.LmrGradGood;
+        LmrGradBad = Tune.LmrGradBad;
+        LmrGradMinDepth = Tune.LmrGradMinDepth;
+        LmrGradHistMax = Tune.LmrGradHistMax;
 
         for (int d = 1; d < 64; d++)
             for (int m = 1; m < 64; m++)
@@ -542,6 +550,14 @@ internal static class Pruning
                         // reduce quiet pawn pushes less
                         if (Tune.LmrPawn != 0 && Types.TypeOf(position.At(move.To)) == PieceType.Pawn)
                             rr -= Tune.LmrPawn;
+                        // use the post move eval gradient to adjust the reduction rather than stale history
+                        if ((LmrGradGood | LmrGradBad) != 0 && !givesCheck && depth >= LmrGradMinDepth &&
+                            (LmrGradHistMax == 0 || Math.Abs(quietScores[i]) < LmrGradHistMax))
+                        {
+                            int grad = -CorrectEval(state, position, Eval.Evaluate(position)) - staticEval;
+                            if (LmrGradGood != 0 && grad >= LmrGradGood) rr--;
+                            if (LmrGradBad != 0 && grad <= -LmrGradBad) rr++;
+                        }
                     }
                     else
                     {

@@ -525,6 +525,7 @@ internal static class Pruning
                 // late move reductions
                 int reduction = 0;
                 int childInCheck = -1;
+                int childStaticEval = int.MinValue;
                 bool isBadCapture = i >= quietEnd;
                 if (depth >= 3 &&
                     i >= (isPv ? 2 : 1) &&
@@ -561,7 +562,8 @@ internal static class Pruning
                         if ((LmrGradGood | LmrGradBad) != 0 && !givesCheck && depth >= LmrGradMinDepth &&
                             (LmrGradHistMax == 0 || Math.Abs(quietScores[i]) < LmrGradHistMax))
                         {
-                            int grad = -CorrectEval(state, position, Eval.Evaluate(position)) - staticEval;
+                            childStaticEval = CorrectEval(state, position, Eval.Evaluate(position));
+                            int grad = -childStaticEval - staticEval;
                             if (LmrGradGood != 0 && grad >= LmrGradGood) rr--;
                             if (LmrGradBad != 0 && grad <= -LmrGradBad) rr++;
                         }
@@ -576,7 +578,7 @@ internal static class Pruning
                     state.Stats.LmrReduce(reduction);
                 }
 
-                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode, default, childInCheck);
+                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode, default, childInCheck, childStaticEval);
                 if (score > alpha && (reduction > 0 || score < beta))
                 {
                     state.Stats.Research(reduction);

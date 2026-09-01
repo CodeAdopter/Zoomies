@@ -21,6 +21,7 @@ public sealed class SearchState
     public long BestMoveEffortNodes;
     public int SelectiveDepth;
     public int RootDepth;
+    public int ZoomiesReduction;
     public long SingularAttempts;
     public long SingularExtensions;
     public long SingularMulticuts;
@@ -88,6 +89,7 @@ public sealed class SearchState
         QuiescenceNodeCount = 0;
         EvaluationCount = 0;
         RootDepth = 0;
+        ZoomiesReduction = 0;
         SingularAttempts = 0;
         SingularExtensions = 0;
         SingularMulticuts = 0;

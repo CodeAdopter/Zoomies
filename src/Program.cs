@@ -29,6 +29,20 @@ if (args.Length > 0)
             Uci.RunBench(depth);
             return;
 
+        case "ttd":
+        {
+            long movetime = args.Length > 1 &&
+                long.TryParse(args[1], out long parsedMovetime)
+                    ? parsedMovetime
+                    : 10000;
+            int hashMb = args.Length > 2 &&
+                int.TryParse(args[2], out int parsedHash)
+                    ? parsedHash
+                    : 256;
+            TimeToDepth.Run(movetime, hashMb);
+            return;
+        }
+
         case "perft":
             Perft.Suite();
             return;

@@ -15,4 +15,19 @@ public static class Fens
     public const string Frc960a    = "bqnbnrkr/pppppppp/8/8/8/8/PPPPPPPP/BQNBNRKR w KQkq - 0 1";
     public const string Frc960b    = "brnnkbqr/pppppppp/8/8/8/8/PPPPPPPP/BRNNKBQR w KQkq - 0 1";
     public const string Frc960c    = "rbbkqrnn/pppppppp/8/8/8/8/PPPPPPPP/RBBKQRNN w KQkq - 0 1";
+
+    // Standard Test Closed
+    public const string C_O = "r1b1kbnr/pp3ppp/1qn1p3/2ppP3/3P4/P1P2N2/1P3PPP/RNBQKB1R b KQkq - 0 6";      // French Advance main line
+    public const string C_M = "r1bq1rk1/pppnn1bp/3p4/3Pp1p1/2P1Pp2/2N2P2/PP2BBPP/R2QNRK1 w - - 0 13";      // KID Mar del Plata
+    public const string C_E = "2b5/3k1p2/3p2p1/2pPp2p/2P1P2P/3KN1P1/5P2/8 w - - 0 40";                     // Knight vs bad bishop
+
+    // Standard Test Open
+    public const string O_O = "r1bqkbnr/pppp1ppp/2n5/8/3NP3/8/PPP2PPP/RNBQKB1R b KQkq - 0 4";              // Scotch
+    public const string O_M = "3rr1k1/ppq1bppp/2n1bn2/2p3B1/2P5/1BN2N2/PPQ2PPP/3RR1K1 b - - 0 15";         // Open d/e files
+    public const string O_E = "r7/5pkp/6p1/8/pP6/6P1/5PKP/1R6 w - - 0 45";                                 // Rook endgame
+
+    // Standard Test Dynamic
+    public const string D_O = "rn1qkb1r/1p3ppp/p2pbn2/4p3/4P3/1NN1BP2/PPP3PP/R2QKB1R b KQkq - 0 8";        // Najdorf English Attack
+    public const string D_M = "2rq1rk1/pp1bppbp/3p1np1/4n3/3NP2P/1BN1BP2/PPPQ2P1/2KR3R b - - 0 12";        // Dragon Yugoslav
+    public const string D_E = "8/5p1k/6p1/4q2p/P1p5/7P/5PP1/3Q2K1 w - - 0 50";                             // Queen endgame
 }

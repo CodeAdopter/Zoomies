@@ -60,6 +60,7 @@ public sealed class Search
         public int Score;
         public int Depth;
     }
+    public readonly long[] IterationMilliseconds = new long[SearchState.MaximumPly];
 
     public bool SuppressOutput { get; set; }
     public long LastNodeCount { get; private set; }
@@ -217,6 +218,7 @@ public sealed class Search
         SearchState st, Position position, in SearchLimits limits, int threadIndex, bool isMain)
     {
         st.Reset(in limits, bumpTtGeneration: isMain);
+        if (isMain) Array.Clear(IterationMilliseconds, 0, IterationMilliseconds.Length);
 
         Span<Move> rootMoves = stackalloc Move[256];
         int rootMoveCount = GenerateLegalMoves(position, rootMoves);
@@ -238,6 +240,7 @@ public sealed class Search
         for (int depth = isMain ? 1 : 1 + (threadIndex & 1); depth <= maxDepth; depth++)
         {
             st.RootDepth = depth;
+            st.ZoomiesReduction = ComputeZoomies(depth, lastScore);
             long iterationStartNodes = st.NodeCount;
             st.BestMoveEffortNodes = 0;
 
@@ -286,6 +289,8 @@ public sealed class Search
             int previousScore = lastScore;
             lastScore = score;
             completedDepth = depth;
+            if (isMain && depth < IterationMilliseconds.Length)
+                IterationMilliseconds[depth] = st.Clock.ElapsedMilliseconds;
 
             long iterationNodes = Math.Max(1, st.NodeCount - iterationStartNodes);
             int effortPercent = (int)(100 * st.BestMoveEffortNodes / iterationNodes);
@@ -358,6 +363,28 @@ public sealed class Search
             Score = lastScore,
             Depth = completedDepth,
         };
+    }
+
+    private static int ComputeZoomies(int depth, int lastScore)
+    {
+        if (Tune.Zoomies == 0) return 0;
+
+        int start = Tune.ZoomiesStart;
+        if (depth <= start) return 0;
+
+        int full = Math.Max(Tune.ZoomiesFull, start + 1);
+        int end = Math.Max(Tune.ZoomiesEnd, full + 1);
+        int max = Tune.ZoomiesMax;
+        int floor = Math.Min(Tune.ZoomiesFloor, max);
+
+        int zoomies = depth <= full
+            ? max * (depth - start) / (full - start)
+            : Math.Max(max - (max - floor) * (depth - full) / (end - full), floor);
+
+        if (Tune.ZoomiesDecisive > 0 && Math.Abs(lastScore) >= Tune.ZoomiesDecisive)
+            zoomies++;
+
+        return zoomies;
     }
 
     private long AggregateNodes()

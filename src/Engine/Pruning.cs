@@ -36,6 +36,10 @@ internal static class Pruning
     private static int LmrGradMinDepth;
     private static int LmrGradHistMax;
     private static bool LazyQuietScoring;
+    private static int ZoomiesMoveMin;
+    private static int ZoomiesHistMax;
+    private static int ZoomiesScale;
+    private static int ZoomiesNmp;
 
     private static readonly int[] LmrTable = new int[64 * 64];
 
@@ -86,6 +90,10 @@ internal static class Pruning
         MaoWeight = Tune.MaoWeight;
         RootNodeOrd = Tune.RootNodeOrd;
         LazyQuietScoring = Tune.LazyQuietScore != 0;
+        ZoomiesMoveMin = Tune.ZoomiesMoves;
+        ZoomiesHistMax = Tune.ZoomiesHist;
+        ZoomiesScale = Tune.ZoomiesScale;
+        ZoomiesNmp = Tune.ZoomiesNmp;
         OutpostReduction = Tune.Outpost;
         NonPawnCorrWeight = Tune.CorrNonPawn;
         LmrGradGood = Tune.LmrGradGood;
@@ -233,6 +241,9 @@ internal static class Pruning
         {
             state.Stats.NmpTry();
             int reduction = Tune.NmpBase + depth / Tune.NmpDiv;
+            // depth zoomies: cheaper null-move verification at high root depth
+            if (state.ZoomiesReduction != 0 && ZoomiesNmp != 0)
+                reduction += state.ZoomiesReduction * ZoomiesNmp / 2;
             state.PlayedPieceTo[ply] = -1;
             position.MakeNullMove();
             state.Tt.Prefetch(position.History[position.Ply].Hash);
@@ -560,6 +571,14 @@ internal static class Pruning
                         // reduce quiet pawn pushes less
                         if (Tune.LmrPawn != 0 && Types.TypeOf(position.At(move.To)) == PieceType.Pawn)
                             rr -= Tune.LmrPawn;
+                        // depth zoomies
+                        if (state.ZoomiesReduction != 0 && !ttPv &&
+                            i >= ZoomiesMoveMin && quietScores[i] < ZoomiesHistMax)
+                        {
+                            rr += state.ZoomiesReduction;
+                            if (ZoomiesScale != 0 && rr > 0)
+                                rr += rr * state.ZoomiesReduction * ZoomiesScale / 256;
+                        }
                         // use the post move eval gradient to adjust the reduction rather than stale history
                         if ((LmrGradGood | LmrGradBad) != 0 && !givesCheck && depth >= LmrGradMinDepth &&
                             (LmrGradHistMax == 0 || Math.Abs(quietScores[i]) < LmrGradHistMax))

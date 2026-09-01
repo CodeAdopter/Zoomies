@@ -162,6 +162,9 @@ internal static class Tune
     [Tune("ZT_TM_SDROP_MARGIN", 0, 30, 2, "tm")] public static int TmScoreDropMargin = 8;
     [Tune("ZT_TM_SDROP_SLOPE", 1, 8, 1, "tm")] public static int TmScoreDropSlope = 3;
     [Tune("ZT_TM_SDROP_MAX", 110, 300, 8, "tm")] public static int TmScoreDropMax = 189;
+    [Tune("ZT_TM_FIRST_BONUS", 0, 200, 10, "tm")] public static int TmFirstBonus = 50;
+    [Tune("ZT_TM_SHIFT_CP", 10, 150, 5, "tm")] public static int TmShiftCp = 50;
+    [Tune("ZT_TM_SHIFT_SCALE", 100, 250, 5, "tm")] public static int TmShiftScale = 140;
 
     // ===========================================================================
     // minor outpost

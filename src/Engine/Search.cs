@@ -335,8 +335,13 @@ public sealed class Search
                     100 + (previousScore - score - Tune.TmScoreDropMargin) * Tune.TmScoreDropSlope,
                     100, Tune.TmScoreDropMax);
 
+            int shiftScale = depth >= ScoreDropMinDepth &&
+                Math.Abs(score - previousScore) >= Tune.TmShiftCp
+                    ? Tune.TmShiftScale
+                    : 100;
+
             long combinedScale = Math.Clamp(
-                StabilityScale[stability] * effortScale * scoreDropScale / 10000,
+                StabilityScale[stability] * effortScale * scoreDropScale / 10000 * shiftScale / 100,
                 SoftScaleFloor, SoftScaleCeiling);
 
             long softLimit = st.HasSoftLimit

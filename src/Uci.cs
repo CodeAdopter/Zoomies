@@ -32,6 +32,8 @@ public static class Uci
 
         var search = new Search();
         Thread? activeSearchThread = null;
+        bool firstSearchOfGame = true;
+        bool unusualPosition = false;
 
         void StopActiveSearch()
         {
@@ -69,17 +71,20 @@ public static class Uci
                     StopActiveSearch();
                     search.NewGame();
                     Position.Set(Types.StartingPositionFen, position);
+                    firstSearchOfGame = true;
+                    unusualPosition = false;
                     break;
 
                 case "position":
                     StopActiveSearch();
-                    ParsePosition(position, tokens);
+                    unusualPosition = ParsePosition(position, tokens);
                     break;
 
                 case "go":
                     StopActiveSearch();
-                    SearchLimits? limits = ParseGo(position, tokens);
+                    SearchLimits? limits = ParseGo(position, tokens, firstSearchOfGame && unusualPosition);
                     if (limits is null) break;
+                    firstSearchOfGame = false;
 
                     search.ResetStopRequest();
                     SearchLimits searchLimits = limits.Value;
@@ -177,14 +182,16 @@ public static class Uci
         }
     }
 
-    private static void ParsePosition(Position position, string[] tokens)
+    private static bool ParsePosition(Position position, string[] tokens)
     {
         int nextToken;
+        bool unusual;
 
         if (tokens.Length > 1 && tokens[1] == "startpos")
         {
             Position.Set(Types.StartingPositionFen, position);
             nextToken = 2;
+            unusual = false;
         }
         else if (tokens.Length > 1 && tokens[1] == "fen")
         {
@@ -198,21 +205,25 @@ public static class Uci
             }
 
             Position.Set(fen.ToString(), position);
+            unusual = true;
         }
         else
         {
-            return;
+            return false;
         }
 
         if (nextToken >= tokens.Length || tokens[nextToken] != "moves")
-            return;
+            return unusual;
 
         for (int i = nextToken + 1; i < tokens.Length; i++)
         {
             Move move = ParseMove(position, tokens[i]);
             if (move.EncodedValue == 0) break;
             position.Play(position.Turn, move);
+            unusual = true;
         }
+
+        return unusual;
     }
 
     private static Move ParseMove(Position position, string uciMove)
@@ -229,7 +240,7 @@ public static class Uci
         return default;
     }
 
-    private static SearchLimits? ParseGo(Position position, string[] tokens)
+    private static SearchLimits? ParseGo(Position position, string[] tokens, bool firstMoveBonus)
     {
         int perftIndex = Array.IndexOf(tokens, "perft");
         if (perftIndex >= 0)
@@ -305,6 +316,10 @@ public static class Uci
                 : blackIncrement;
 
             limits = TimeManager.Allocate(remainingTime, increment, movesToGo);
+            if (firstMoveBonus && Tune.TmFirstBonus > 0)
+                limits.SoftTimeMilliseconds = Math.Min(
+                    limits.SoftTimeMilliseconds * (100 + Tune.TmFirstBonus) / 100,
+                    limits.MoveTimeMilliseconds);
         }
         else
         {

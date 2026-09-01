@@ -108,6 +108,13 @@ internal static class Tune
     [Tune("ZT_MAO_WEIGHT", 0, 400, 15, "zoom")] public static int MaoWeight = 147;
 
     // ===========================================================================
+    // demote queen trade
+    // ===========================================================================
+    [Tune("ZT_QKEEP_DEMOTE", 0, 1, 1, "qkeep")] public static int QkeepDemote = 1;
+    [Tune("ZT_QKEEP_LMR", 0, 3, 1, "qkeep")] public static int QkeepLmr = 1;
+    [Tune("ZT_QKEEP_MARGIN", 0, 400, 16, "qkeep")] public static int QkeepMargin = 144;
+
+    // ===========================================================================
     // lazy quiet scoring
     // ===========================================================================
     [Tune("ZT_LAZY_QSCORE", 0, 1, 1, "ordering")] public static int LazyQuietScore = 1;

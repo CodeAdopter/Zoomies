@@ -58,10 +58,11 @@ internal static class Order
         Span<Move> losing = stackalloc Move[256];
         Span<int> losingSee = stackalloc int[256];
         int goodCount = 0;
+        bool demoteQueenTrade = Tune.QkeepDemote != 0;
         for (int i = 0; i < tacticalMoveCount; i++)
         {
             Move move = moves[i];
-            if (IsLosingCapture(position, move, out int see))
+            if (IsLosingCapture(position, move, out int see) || (demoteQueenTrade && IsQueenTrade(position, move)))
             {
                 losingSee[losingCount] = see;
                 losing[losingCount++] = move;
@@ -93,6 +94,18 @@ internal static class Order
         if (attacker <= victim) return false;
         see = See.Exact(position, move);
         return see < 0;
+    }
+
+    internal static bool IsQueenTrade(Position position, Move move)
+    {
+        if (!move.IsCapture ||
+            (move.Flags &  MoveFlags.Promotions) != 0 ||
+             move.Flags == MoveFlags.EnPassant)
+            return false;
+        if (Types.TypeOf(position.At(move.From)) != PieceType.Queen ||
+            Types.TypeOf(position.At(move.To)) != PieceType.Queen)
+            return false;
+        return !See.Ge(position, move, Tune.QkeepMargin);
     }
 
     private static int PieceTypeValue(Piece piece) =>

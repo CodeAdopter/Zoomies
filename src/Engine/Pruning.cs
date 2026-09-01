@@ -505,6 +505,8 @@ internal static class Pruning
             else if (!isQuiet && triedNoisyCount < triedNoisy.Length)
                 triedNoisy[triedNoisyCount++] = move;
 
+            bool isQueenTrade = Tune.QkeepLmr > 0 && !isQuiet && Order.IsQueenTrade(position, move);
+
             searchedMoves++;
             state.Stats.MoveSearched();
             long rootNodesBefore = ply == 0 ? state.NodeCount : 0;
@@ -530,7 +532,7 @@ internal static class Pruning
                 if (depth >= 3 &&
                     i >= (isPv ? 2 : 1) &&
                     !inCheck &&
-                    (isQuiet || (isBadCapture && Tune.LmrBadCap > 0)) &&
+                    (isQuiet || (isBadCapture && Tune.LmrBadCap > 0) || isQueenTrade) &&
                     move != state.KillerMoves[ply * 2] &&
                     move != state.KillerMoves[ply * 2 + 1] &&
                     move != counterMove)
@@ -570,7 +572,9 @@ internal static class Pruning
                     }
                     else
                     {
-                        rr = Tune.LmrBadCap;
+                        rr = isBadCapture ? Tune.LmrBadCap : 0;
+
+                        if (isQueenTrade) rr += Tune.QkeepLmr;
                         if (givesCheck) rr -= Tune.LmrGivesCheck;
                     }
                     if (rr < 1) rr = 1;

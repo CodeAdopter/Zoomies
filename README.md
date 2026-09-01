@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/zoomies.png" alt="Zoomies logo" width="240">
+</div>
+
 # Zoomies Chess Engine
 
 Zoomies is a single-threaded UCI chess engine with NNUE evaluation.

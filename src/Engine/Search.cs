@@ -115,12 +115,37 @@ public sealed class Search
             helperStates[i].ClearHistory();
     }
 
-    public void ResizeHash(int sizeMb) => state.Tt.Resize(sizeMb);
+    public void ResizeHash(int sizeMb)
+    {
+        if (kbnkSavedHashMb != 0) { kbnkSavedHashMb = sizeMb; return; }
+        state.Tt.Resize(sizeMb);
+    }
 
     public void ClearHash() => state.Tt.Clear();
 
+    private int kbnkSavedHashMb;
+
     public Move FindBestMove(Position position, SearchLimits limits)
     {
+        if (Tune.Kbnk != 0 && Solvers.Kbnk.KbnkValidator.TryGetStrongSide(position, out _))
+        {
+            if (kbnkSavedHashMb == 0)
+            {
+                kbnkSavedHashMb = state.Tt.SizeMb;
+                state.Tt.Resize(1);
+                GC.Collect();
+            }
+            if (Solvers.KbnkSolver.TryGetRootMove(position, SuppressOutput, out Move kbnkMove, threadCount))
+                return kbnkMove;
+        }
+
+        if (kbnkSavedHashMb != 0)
+        {
+            state.Tt.Resize(kbnkSavedHashMb);
+            kbnkSavedHashMb = 0;
+            Solvers.KbnkSolver.Release();
+        }
+
         if (threadCount <= 1 || helperStates.Length == 0)
         {
             ThreadResult solo = RunIterativeDeepening(state, position, in limits, 0, isMain: true);

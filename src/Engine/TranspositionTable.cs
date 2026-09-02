@@ -30,8 +30,11 @@ public sealed class TranspositionTable
 
     public TranspositionTable(int sizeMb = 16) => Resize(sizeMb);
 
+    public int SizeMb { get; private set; } = 16;
+
     public void Resize(int sizeMb)
     {
+        SizeMb = sizeMb;
         int entrySize = Unsafe.SizeOf<Slot>();
         long bytes = (long)sizeMb * 1024 * 1024;
         long want = bytes / entrySize;

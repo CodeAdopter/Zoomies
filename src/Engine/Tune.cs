@@ -37,6 +37,11 @@ internal static class Tune
     [Tune("ZT_ZOOMIES_NMP", 0, 2, 1, "zoomies")] public static int ZoomiesNmp = 2;
 
     // ===========================================================================
+    // kbnk solver
+    // ===========================================================================
+    [Tune("ZT_KBNK", 0, 1, 1, "kbnk", tunable: false)] public static int Kbnk = 1;
+
+    // ===========================================================================
     // reverse futility pruning
     // ===========================================================================
     [Tune("ZT_RFP_DEPTH", 4, 12, 1, "rfp")] public static int RfpMaxDepth = 7;

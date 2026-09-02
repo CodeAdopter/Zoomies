@@ -119,7 +119,8 @@ internal static class Pruning
             return 0;
         }
 
-        if (ply > 0 && (position.HasRepeated() || position.IsFiftyMoveRule()))
+        if (ply > 0 && (position.HasRepeated() ||
+            (position.IsFiftyMoveRule() && !IsCheckmated(position, knownInCheck))))
             return 0;
 
         // mate distance pruning
@@ -900,6 +901,15 @@ internal static class Pruning
         x ^= x >> 33; x *= 0xC4CEB9FE1A85EC53UL;
         x ^= x >> 33;
         return x;
+    }
+
+    // only reached when the halfmove clock has hit 100, so the legal move generation is rare
+    private static bool IsCheckmated(Position position, int knownInCheck)
+    {
+        bool inCheck = knownInCheck >= 0 ? knownInCheck != 0 : position.InCheck(position.Turn);
+        if (!inCheck) return false;
+        Span<Move> moves = stackalloc Move[256];
+        return Engine.Search.GenerateLegalMoves(position, moves) == 0;
     }
 
     private static bool HasNonPawnMaterial(Position position, Color side) =>

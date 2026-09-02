@@ -783,6 +783,74 @@ public class Position
         if (NnueSt != null) Engine.Nnue.OnUndo(this);
     }
 
+    public ulong KeyAfter(Color us, Move m)
+    {
+        ref readonly UndoInfo cur = ref History[gamePly];
+        ulong k = hash ^ StateHash(cur.Castling, cur.EnPassantSquare) ^ Zobrist.SideToMove;
+        Square from = m.From, to = m.To;
+        Piece pc = board[(int)from];
+        CastlingRights castling = cur.Castling & ~(castleClear[(int)from] | castleClear[(int)to]);
+        Square ep = Square.NoSquare;
+        switch (m.Flags)
+        {
+            case MoveFlags.Quiet:
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(pc, to);
+                break;
+            case MoveFlags.DoublePush:
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(pc, to);
+                ep = (Square)((int)from + (int)Types.RelativeDir(us, Direction.North));
+                break;
+            case MoveFlags.OO:
+            case MoveFlags.OOO:
+            {
+                Piece king = Types.MakePiece(us, PieceType.King);
+                Piece rook = Types.MakePiece(us, PieceType.Rook);
+                Square kFrom, kTo, rFrom, rTo;
+                if (Chess960)
+                {
+                    int idx = CastleIndex(us, m.Flags == MoveFlags.OO);
+                    kFrom = from; kTo = castleKingTo[idx]; rFrom = castleRookFrom[idx]; rTo = castleRookTo[idx];
+                }
+                else
+                {
+                    int e = us == Color.White ? (int)Square.e1 : (int)Square.e8;
+                    bool kingside = m.Flags == MoveFlags.OO;
+                    kFrom = (Square)e; kTo = (Square)(kingside ? e + 2 : e - 2);
+                    rFrom = (Square)(kingside ? e + 3 : e - 4); rTo = (Square)(kingside ? e + 1 : e - 1);
+                }
+                k ^= Zobrist.Piece(king, kFrom) ^ Zobrist.Piece(king, kTo) ^ Zobrist.Piece(rook, rFrom) ^ Zobrist.Piece(rook, rTo);
+                break;
+            }
+            case MoveFlags.EnPassant:
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(pc, to)
+                   ^ Zobrist.Piece(Types.MakePiece(us.Flip(), PieceType.Pawn), (Square)((int)to + (int)Types.RelativeDir(us, Direction.South)));
+                break;
+            case MoveFlags.PrKnight:
+            case MoveFlags.PrBishop:
+            case MoveFlags.PrRook:
+            case MoveFlags.PrQueen:
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(Types.MakePiece(us, (PieceType)(((int)m.Flags & 3) + 1)), to);
+                break;
+            case MoveFlags.PcKnight:
+            case MoveFlags.PcBishop:
+            case MoveFlags.PcRook:
+            case MoveFlags.PcQueen:
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(board[(int)to], to)
+                   ^ Zobrist.Piece(Types.MakePiece(us, (PieceType)(((int)m.Flags & 3) + 1)), to);
+                break;
+            case MoveFlags.Capture:
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(pc, to) ^ Zobrist.Piece(board[(int)to], to);
+                break;
+        }
+        return k ^ StateHash(castling, ep);
+    }
+
+    public ulong KeyAfterNull()
+    {
+        ref readonly UndoInfo cur = ref History[gamePly];
+        return hash ^ StateHash(cur.Castling, cur.EnPassantSquare) ^ Zobrist.SideToMove ^ StateHash(cur.Castling, Square.NoSquare);
+    }
+
     public bool IsRepetition()
     {
         if (gamePly < 4) return false;

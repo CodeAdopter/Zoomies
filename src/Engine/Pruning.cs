@@ -245,8 +245,8 @@ internal static class Pruning
             if (state.ZoomiesReduction != 0 && ZoomiesNmp != 0)
                 reduction += state.ZoomiesReduction * ZoomiesNmp / 2;
             state.PlayedPieceTo[ply] = -1;
+            state.Tt.Prefetch(position.KeyAfterNull());
             position.MakeNullMove();
-            state.Tt.Prefetch(position.History[position.Ply].Hash);
             int nullScore = -AlphaBeta(state, position, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false, !cutNode);
             position.UnmakeNullMove();
 
@@ -522,8 +522,8 @@ internal static class Pruning
             state.Stats.MoveSearched();
             long rootNodesBefore = ply == 0 ? state.NodeCount : 0;
             state.PlayedPieceTo[ply] = ((int)position.At(move.From) << 6) | (int)move.To;
+            state.Tt.Prefetch(position.KeyAfter(sideToMove, move));
             position.Play(sideToMove, move);
-            state.Tt.Prefetch(position.History[position.Ply].Hash);
 
             // principal variation search
             int score;

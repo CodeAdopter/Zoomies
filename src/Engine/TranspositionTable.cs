@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics.X86;
 
 namespace Zoomies.Engine;
@@ -25,6 +26,8 @@ public sealed class TranspositionTable
     }
 
     private Slot[] table = [];
+
+    private nint tableByteOffset;
     private ulong mask;
     private byte generation;
 
@@ -32,7 +35,7 @@ public sealed class TranspositionTable
 
     public int SizeMb { get; private set; } = 16;
 
-    public void Resize(int sizeMb)
+    public unsafe void Resize(int sizeMb)
     {
         SizeMb = sizeMb;
         int entrySize = Unsafe.SizeOf<Slot>();
@@ -40,9 +43,15 @@ public sealed class TranspositionTable
         long want = bytes / entrySize;
         long pow = 1;
         while (pow * 2 <= want) pow *= 2;
-        table = new Slot[pow];
+        table = GC.AllocateUninitializedArray<Slot>((int)pow + 4, pinned: true);
+        long address = (nint)Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(table));
+        tableByteOffset = (nint)((64 - (address & 63)) & 63);
         mask = (ulong)(pow - 1);
+        Clear();
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ref Slot SlotAt(ulong index) => ref Unsafe.Add(ref Unsafe.AddByteOffset(ref MemoryMarshal.GetArrayDataReference(table), tableByteOffset), (nint)index);
 
     public void Clear()
     {
@@ -58,7 +67,7 @@ public sealed class TranspositionTable
         int used = 0;
         for (int i = 0; i < sample; i++)
         {
-            ulong data = Volatile.Read(ref table[i].Data);
+            ulong data = Volatile.Read(ref SlotAt((ulong)i).Data);
             if ((TtFlag)(byte)((data >> 40) & 3) != TtFlag.None &&
                 (byte)((data >> 42) & 0x3F) == generation)
                 used++;
@@ -78,7 +87,7 @@ public sealed class TranspositionTable
     public unsafe void Prefetch(ulong key)
     {
         if (Sse.IsSupported)
-            Sse.Prefetch0(Unsafe.AsPointer(ref table[key & mask & ~1UL]));
+            Sse.Prefetch0(Unsafe.AsPointer(ref SlotAt(key & mask & ~1UL)));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -87,7 +96,7 @@ public sealed class TranspositionTable
         ulong baseIdx = (key & mask) & ~1UL;
         for (int w = 0; w < 2; w++)
         {
-            ref Slot s = ref table[baseIdx + (ulong)w];
+            ref Slot s = ref SlotAt(baseIdx + (ulong)w);
             ulong data = Volatile.Read(ref s.Data);
             ulong keyXorData = Volatile.Read(ref s.KeyXorData);
 
@@ -114,7 +123,7 @@ public sealed class TranspositionTable
 
     public void Store(ulong key, ushort move, int score, int depth, TtFlag flag, bool wasPv)
     {
-        ref Slot s = ref table[SelectSlot(key)];
+        ref Slot s = ref SlotAt(SelectSlot(key));
         ulong oldData = Volatile.Read(ref s.Data);
         ulong oldKeyXorData = Volatile.Read(ref s.KeyXorData);
 
@@ -141,7 +150,7 @@ public sealed class TranspositionTable
         for (int w = 0; w < 2; w++)
         {
             ulong idx = baseIdx + (ulong)w;
-            ref Slot s = ref table[idx];
+            ref Slot s = ref SlotAt(idx);
             ulong data = Volatile.Read(ref s.Data);
             ulong keyXorData = Volatile.Read(ref s.KeyXorData);
             var flag = (TtFlag)(byte)((data >> 40) & 3);

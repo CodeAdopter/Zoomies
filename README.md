@@ -9,7 +9,7 @@ Zoomies Versions
 | v2.0 | NNUE | ~2800 |
 | v3.0 | NNUE | ~3300 |
 | v4.0 | NNUE | ~3500 |
-| v5.0 | NNUE | ~? |
+| v5.0 | NNUE | ~3600 |
 
 ## Requirements
 * Building from source: [.NET 10 SDK](https://dotnet.microsoft.com/download)

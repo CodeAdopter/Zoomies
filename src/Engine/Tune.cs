@@ -28,12 +28,12 @@ internal static class Tune
     [Tune("ZT_ZOOMIES_START", 6, 24, 1, "zoomies")] public static int ZoomiesStart = 12;
     [Tune("ZT_ZOOMIES_FULL", 20, 40, 1, "zoomies")] public static int ZoomiesFull = 30;
     [Tune("ZT_ZOOMIES_END", 32, 64, 1, "zoomies")] public static int ZoomiesEnd = 44;
-    [Tune("ZT_ZOOMIES_MAX", 1, 4, 1, "zoomies")] public static int ZoomiesMax = 3;
+    [Tune("ZT_ZOOMIES_MAX", 1, 6, 1, "zoomies")] public static int ZoomiesMax = 3;
     [Tune("ZT_ZOOMIES_FLOOR", 0, 3, 1, "zoomies")] public static int ZoomiesFloor = 2;
     [Tune("ZT_ZOOMIES_DECISIVE", 0, 800, 25, "zoomies")] public static int ZoomiesDecisive = 300;
     [Tune("ZT_ZOOMIES_MOVES", 0, 16, 1, "zoomies")] public static int ZoomiesMoves = 2;
     [Tune("ZT_ZOOMIES_HIST", 0, 16000, 500, "zoomies")] public static int ZoomiesHist = 12000;
-    [Tune("ZT_ZOOMIES_SCALE", 0, 128, 8, "zoomies")] public static int ZoomiesScale = 48;
+    [Tune("ZT_ZOOMIES_SCALE", 0, 128, 8, "zoomies")] public static int ZoomiesScale = 0;
     [Tune("ZT_ZOOMIES_NMP", 0, 2, 1, "zoomies")] public static int ZoomiesNmp = 2;
 
     // ===========================================================================

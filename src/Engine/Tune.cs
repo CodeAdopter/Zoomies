@@ -295,6 +295,12 @@ internal static class Tune
 
     public static void Dump(TextWriter writer)
     {
+        if (!JsonSerializer.IsReflectionEnabledByDefault)
+        {
+            writer.WriteLine("info string tune dump not supported in trimmed release");
+            return;
+        }
+
         DumpEntry[] entries = [.. Entries.Select(e => new DumpEntry(e.Name, (int)e.Field.GetValue(null)!, e.Default, e.Min, e.Max, e.Step, e.Group, e.Tunable, e.HyperTune))];
         writer.WriteLine(JsonSerializer.Serialize(entries, DumpOptions));
     }

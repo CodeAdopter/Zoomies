@@ -6,13 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <TieredPGO>true</TieredPGO>
-    <EnableDynamicPGO>true</EnableDynamicPGO>
+    <TieredCompilation>false</TieredCompilation>
     <Optimize>true</Optimize>
     <InvariantGlobalization>true</InvariantGlobalization>
     <RootNamespace>Zoomies</RootNamespace>
     <AssemblyName>zoomies</AssemblyName>
-    <Version>5.0</Version>
+    <Version>5.2</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -22,8 +21,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\nnue\best.nnue" Condition="Exists('..\nnue\best.nnue')" LogicalName="best.nnue" />
-    <EmbeddedResource Include="..\assets\zoomies.png" Condition="Exists('..\assets\zoomies.png')" LogicalName="zoomies.png" />
-    <None Include="..\assets\zoomies.png" Condition="Exists('..\assets\zoomies.png')" Link="zoomies.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

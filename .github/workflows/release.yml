@@ -22,12 +22,6 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
             artifact: zoomies
-          - os: macos-latest
-            rid: osx-arm64
-            artifact: zoomies
-          - os: macos-latest
-            rid: osx-x64
-            artifact: zoomies
 
     steps:
       - uses: actions/checkout@v4
@@ -42,8 +36,10 @@ jobs:
           dotnet publish src/Zoomies.csproj
           -c Release
           -r ${{ matrix.rid }}
-          --self-contained false
+          --self-contained true
           -p:PublishSingleFile=true
+          -p:PublishTrimmed=true
+          -p:EnableCompressionInSingleFile=true
           -p:DebugType=none
           -o publish
 
@@ -59,7 +55,6 @@ jobs:
         run: mv "publish/${{ matrix.artifact }}" "publish/$ASSET"
 
       - name: Bench Test
-        if: matrix.rid != 'osx-x64'
         shell: bash
         run: |
           out=$(./publish/"$ASSET" bench 6)

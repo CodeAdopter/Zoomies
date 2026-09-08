@@ -340,7 +340,7 @@ public sealed class Search
                     $"info depth {depth} seldepth {st.SelectiveDepth} score {scoreText} " +
                     $"nodes {totalNodes} nps {nodesPerSecond} " +
                     $"hashfull {st.Tt.Hashfull()} time {elapsedMilliseconds} " +
-                    $"effort {effortPercent} pv {BuildPrincipalVariation(position, depth)}");
+                    $"effort {effortPercent} pv {BuildPrincipalVariation(position, depth, score)}");
             }
 
             if (st.ReachedSearchLimit()) break;
@@ -420,7 +420,7 @@ public sealed class Search
         return nodes;
     }
 
-    private string BuildPrincipalVariation(Position position, int maxLength)
+    private string BuildPrincipalVariation(Position position, int maxLength, int rootScore)
     {
         var line = new System.Text.StringBuilder();
         Span<Move> moves = stackalloc Move[256];
@@ -447,6 +447,15 @@ public sealed class Search
 
             if (!state.Tt.Probe(position.History[position.Ply].Hash, out TranspositionTable.Entry entry))
                 break;
+
+            if (Tune.PvMinDepth > 0 && entry.Depth < Tune.PvMinDepth) break;
+            if (Tune.PvScoreCheck != 0)
+            {
+                if (entry.Flag != TtFlag.Exact) break;
+                int nodeScore = TranspositionTable.ScoreFromTt(entry.Score, count);
+                if (nodeScore != ((count & 1) == 0 ? rootScore : -rootScore)) break;
+            }
+
             current = new Move(entry.Move);
         }
 

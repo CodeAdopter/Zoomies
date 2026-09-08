@@ -233,6 +233,8 @@ internal static class Tune
     [Tune("ZT_LMR_NONIMP", 0, 2, 1, "lmr-flags")] public static int LmrNonImp = 0;
     [Tune("ZT_LMR_CHECK", 0, 2, 1, "lmr-flags")] public static int LmrGivesCheck = 0;
     [Tune("ZT_ROOT_NODEORD", 0, 32768, 1024, "ordering")] public static int RootNodeOrd = 0;
+    [Tune("ZT_PV_MINDEPTH", 0, 10, 1, "pv")] public static int PvMinDepth = 0;
+    [Tune("ZT_PV_SCORECHECK", 0, 1, 1, "pv")] public static int PvScoreCheck = 1;
 
     public readonly record struct Entry(FieldInfo Field, string Name, int Default, int Min, int Max, int Step, string Group, bool Tunable, bool HyperTune);
     private static readonly Entry[] Entries;

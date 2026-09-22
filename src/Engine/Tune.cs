@@ -30,9 +30,9 @@ internal static class Tune
     [Tune("ZT_ZOOMIES_END", 32, 64, 1, "zoomies")] public static int ZoomiesEnd = 44;
     [Tune("ZT_ZOOMIES_MAX", 1, 6, 1, "zoomies")] public static int ZoomiesMax = 3;
     [Tune("ZT_ZOOMIES_FLOOR", 0, 3, 1, "zoomies")] public static int ZoomiesFloor = 2;
-    [Tune("ZT_ZOOMIES_DECISIVE", 0, 800, 25, "zoomies")] public static int ZoomiesDecisive = 300;
+    [Tune("ZT_ZOOMIES_DECISIVE", 0, 800, 25, "zoomies")] public static int ZoomiesDecisive = 297;
     [Tune("ZT_ZOOMIES_MOVES", 0, 16, 1, "zoomies")] public static int ZoomiesMoves = 2;
-    [Tune("ZT_ZOOMIES_HIST", 0, 16000, 500, "zoomies")] public static int ZoomiesHist = 12000;
+    [Tune("ZT_ZOOMIES_HIST", 0, 16000, 500, "zoomies")] public static int ZoomiesHist = 12016;
     [Tune("ZT_ZOOMIES_SCALE", 0, 128, 8, "zoomies")] public static int ZoomiesScale = 0;
     [Tune("ZT_ZOOMIES_NMP", 0, 2, 1, "zoomies")] public static int ZoomiesNmp = 2;
 
@@ -46,8 +46,8 @@ internal static class Tune
     // ===========================================================================
     [Tune("ZT_RFP_DEPTH", 4, 12, 1, "rfp")] public static int RfpMaxDepth = 7;
     [Tune("ZT_RFP_BASE", 25, 100, 4, "rfp")] public static int RfpBase = 49;
-    [Tune("ZT_RFP_IMP", -20, 60, 4, "rfp")] public static int RfpImp = -4;
-    [Tune("ZT_RFP_NONIMP", -20, 60, 4, "rfp")] public static int RfpNonImp = 6;
+    [Tune("ZT_RFP_IMP", -20, 60, 4, "rfp")] public static int RfpImp = -5;
+    [Tune("ZT_RFP_NONIMP", -20, 60, 4, "rfp")] public static int RfpNonImp = 7;
 
     // ===========================================================================
     // null move pruning
@@ -60,16 +60,16 @@ internal static class Tune
     // futility pruning
     // ===========================================================================
     [Tune("ZT_FUT_DEPTH", 2, 8, 1, "futility")] public static int FutMaxDepth = 3;
-    [Tune("ZT_FUT_BASE", 60, 280, 8, "futility")] public static int FutBase = 131;
-    [Tune("ZT_FUT_SLOPE", 80, 320, 10, "futility")] public static int FutSlope = 197;
-    [Tune("ZT_FUT_IMP", 0, 200, 8, "futility")] public static int FutImp = 96;
+    [Tune("ZT_FUT_BASE", 60, 280, 8, "futility")] public static int FutBase = 130;
+    [Tune("ZT_FUT_SLOPE", 80, 320, 10, "futility")] public static int FutSlope = 195;
+    [Tune("ZT_FUT_IMP", 0, 200, 8, "futility")] public static int FutImp = 93;
     [Tune("ZT_FUT_NONIMP", 0, 160, 8, "futility")] public static int FutNonImp = 49;
 
     // ===========================================================================
     // history pruning
     // ===========================================================================
     [Tune("ZT_HISTP_DEPTH", 2, 8, 1, "histprune")] public static int HistPruneMaxDepth = 5;
-    [Tune("ZT_HISTP_MULT", 1500, 16000, 200, "histprune")] public static int HistPruneMult = 7000;
+    [Tune("ZT_HISTP_MULT", 1500, 16000, 200, "histprune")] public static int HistPruneMult = 6962;
 
     // ===========================================================================
     // SEE pruning (captures)
@@ -81,7 +81,7 @@ internal static class Tune
     // quiet SEE pruning
     // ===========================================================================
     [Tune("ZT_QSEE_DEPTH", 3, 10, 1, "seeprune")] public static int QuietSeeMaxDepth = 6;
-    [Tune("ZT_QSEE_MARGIN", 20, 140, 6, "seeprune")] public static int QuietSeeMargin = 67;
+    [Tune("ZT_QSEE_MARGIN", 20, 140, 6, "seeprune")] public static int QuietSeeMargin = 66;
 
     // ===========================================================================
     // late move pruning
@@ -94,17 +94,17 @@ internal static class Tune
     // late move reductions
     // ===========================================================================
     [Tune("ZT_LMR_BASE", 20, 120, 5, "lmr")] public static int LmrBase = 56;
-    [Tune("ZT_LMR_DIV", 150, 400, 10, "lmr")] public static int LmrDiv = 263;
-    [Tune("ZT_LMR_HISTDIV", 4000, 24000, 400, "lmr")] public static int LmrHistDiv = 16000;
+    [Tune("ZT_LMR_DIV", 150, 400, 10, "lmr")] public static int LmrDiv = 258;
+    [Tune("ZT_LMR_HISTDIV", 4000, 24000, 400, "lmr")] public static int LmrHistDiv = 15796;
     [Tune("ZT_DODEEPER", 20, 120, 5, "lmr")] public static int DoDeeperMargin = 47;
 
     // ===========================================================================
     // eval gradient lmr
     // ===========================================================================
-    [Tune("ZT_LMR_GRAD_GOOD", 0, 400, 10, "lmrgrad")] public static int LmrGradGood = 80;
-    [Tune("ZT_LMR_GRAD_BAD", 0, 600, 15, "lmrgrad")] public static int LmrGradBad = 120;
+    [Tune("ZT_LMR_GRAD_GOOD", 0, 400, 10, "lmrgrad")] public static int LmrGradGood = 75;
+    [Tune("ZT_LMR_GRAD_BAD", 0, 600, 15, "lmrgrad")] public static int LmrGradBad = 115;
     [Tune("ZT_LMR_GRAD_MINDEPTH", 3, 12, 1, "lmrgrad")] public static int LmrGradMinDepth = 7;
-    [Tune("ZT_LMR_GRAD_HISTMAX", 0, 24000, 500, "lmrgrad")] public static int LmrGradHistMax = 8000;
+    [Tune("ZT_LMR_GRAD_HISTMAX", 0, 24000, 500, "lmrgrad")] public static int LmrGradHistMax = 7918;
 
     // ===========================================================================
     // adaptive reduction inputs
@@ -124,15 +124,15 @@ internal static class Tune
     // ===========================================================================
     // mutual attack ordering
     // ===========================================================================
-    [Tune("ZT_MAO_FLAT", 0, 300, 12, "zoom")] public static int MaoFlat = 99;
-    [Tune("ZT_MAO_WEIGHT", 0, 400, 15, "zoom")] public static int MaoWeight = 147;
+    [Tune("ZT_MAO_FLAT", 0, 300, 12, "zoom")] public static int MaoFlat = 107;
+    [Tune("ZT_MAO_WEIGHT", 0, 400, 15, "zoom")] public static int MaoWeight = 154;
 
     // ===========================================================================
     // demote queen trade
     // ===========================================================================
     [Tune("ZT_QKEEP_DEMOTE", 0, 1, 1, "qkeep")] public static int QkeepDemote = 1;
     [Tune("ZT_QKEEP_LMR", 0, 3, 1, "qkeep")] public static int QkeepLmr = 1;
-    [Tune("ZT_QKEEP_MARGIN", 0, 400, 16, "qkeep")] public static int QkeepMargin = 144;
+    [Tune("ZT_QKEEP_MARGIN", 0, 400, 16, "qkeep")] public static int QkeepMargin = 142;
 
     // ===========================================================================
     // lazy quiet scoring
@@ -153,7 +153,7 @@ internal static class Tune
     // singular extensions
     // ===========================================================================
     [Tune("ZT_SING_MINDEPTH", 4, 10, 1, "singular")] public static int SingularMinDepth = 4;
-    [Tune("ZT_SING_MARGIN", 1, 12, 1, "singular")] public static int SingularMargin = 3;
+    [Tune("ZT_SING_MARGIN", 1, 12, 1, "singular")] public static int SingularMargin = 2;
     [Tune("ZT_SING_TTSLACK", 0, 8, 1, "singular")] public static int SingularTtSlack = 4;
     [Tune("ZT_DEXT_MARGIN", 10, 120, 5, "singular")] public static int DoubleExtensionMargin = 54;
     [Tune("ZT_DEXT_LIMIT", 2, 20, 1, "singular")] public static int DoubleExtensionLimit = 10;
@@ -161,37 +161,37 @@ internal static class Tune
     // ===========================================================================
     // quiet history updates
     // ===========================================================================
-    [Tune("ZT_HIST_CAP", 400, 2400, 60, "history")] public static int HistBonusCap = 911;
+    [Tune("ZT_HIST_CAP", 400, 2400, 60, "history")] public static int HistBonusCap = 853;
     [Tune("ZT_HIST_QUAD", 2, 32, 1, "history")] public static int HistBonusQuad = 12;
-    [Tune("ZT_HIST_LIN", 10, 160, 6, "history")] public static int HistBonusLin = 60;
+    [Tune("ZT_HIST_LIN", 10, 160, 6, "history")] public static int HistBonusLin = 63;
 
     // ===========================================================================
     // correction history
     // ===========================================================================
-    [Tune("ZT_CORR_WCAP", 8, 40, 1, "corrhist")] public static int CorrWeightCap = 19;
-    [Tune("ZT_CORR_NONPAWN", 0, 512, 16, "corrhist")] public static int CorrNonPawn = 256;
+    [Tune("ZT_CORR_WCAP", 8, 40, 1, "corrhist")] public static int CorrWeightCap = 20;
+    [Tune("ZT_CORR_NONPAWN", 0, 512, 16, "corrhist")] public static int CorrNonPawn = 264;
 
     // ===========================================================================
     // aspiration windows
     // ===========================================================================
     [Tune("ZT_ASP_MINDEPTH", 2, 8, 1, "aspiration")] public static int AspMinDepth = 3;
-    [Tune("ZT_ASP_DELTA", 6, 40, 2, "aspiration")] public static int AspDelta = 15;
-    [Tune("ZT_ASP_WIDEN", 20, 96, 3, "aspiration")] public static int AspWiden = 53;
+    [Tune("ZT_ASP_DELTA", 6, 40, 2, "aspiration")] public static int AspDelta = 14;
+    [Tune("ZT_ASP_WIDEN", 20, 96, 3, "aspiration")] public static int AspWiden = 52;
 
     // ===========================================================================
     // quiescence delta pruning
     // ===========================================================================
-    [Tune("ZT_DELTA_MARGIN", 120, 600, 16, "qsearch")] public static int DeltaMargin = 294;
+    [Tune("ZT_DELTA_MARGIN", 120, 600, 16, "qsearch")] public static int DeltaMargin = 301;
 
     // ===========================================================================
     // time management
     // ===========================================================================
-    [Tune("ZT_TM_SDROP_MARGIN", 0, 30, 2, "tm")] public static int TmScoreDropMargin = 8;
+    [Tune("ZT_TM_SDROP_MARGIN", 0, 30, 2, "tm")] public static int TmScoreDropMargin = 7;
     [Tune("ZT_TM_SDROP_SLOPE", 1, 8, 1, "tm")] public static int TmScoreDropSlope = 3;
-    [Tune("ZT_TM_SDROP_MAX", 110, 300, 8, "tm")] public static int TmScoreDropMax = 189;
-    [Tune("ZT_TM_FIRST_BONUS", 0, 200, 10, "tm")] public static int TmFirstBonus = 50;
-    [Tune("ZT_TM_SHIFT_CP", 10, 150, 5, "tm")] public static int TmShiftCp = 50;
-    [Tune("ZT_TM_SHIFT_SCALE", 100, 250, 5, "tm")] public static int TmShiftScale = 140;
+    [Tune("ZT_TM_SDROP_MAX", 110, 300, 8, "tm")] public static int TmScoreDropMax = 187;
+    [Tune("ZT_TM_FIRST_BONUS", 0, 200, 10, "tm")] public static int TmFirstBonus = 52;
+    [Tune("ZT_TM_SHIFT_CP", 10, 150, 5, "tm")] public static int TmShiftCp = 51;
+    [Tune("ZT_TM_SHIFT_SCALE", 100, 250, 5, "tm")] public static int TmShiftScale = 143;
 
     // ===========================================================================
     // minor outpost
@@ -201,13 +201,13 @@ internal static class Tune
     // ===========================================================================
     // nnue output scale
     // ===========================================================================
-    [Tune("ZT_SCALE", 450, 650, 1, "eval")] public static int NnueScale = 600;
+    [Tune("ZT_SCALE", 450, 650, 1, "eval")] public static int NnueScale = 603;
 
     // ===========================================================================
     // razoring
     // ===========================================================================
     [Tune("ZT_RAZOR", 0, 1, 1, "razor")] public static int Razor = 1;
-    [Tune("ZT_RAZOR_BASE", -200, 400, 12, "razor")] public static int RazorBase = 250;
+    [Tune("ZT_RAZOR_BASE", -200, 400, 12, "razor")] public static int RazorBase = 241;
 
     // ===========================================================================
     // locked
@@ -221,7 +221,7 @@ internal static class Tune
     // ===========================================================================
     // unshelved
     // ===========================================================================
-    [Tune("ZT_R50_DAMP", 64, 512, 16, "eval")] public static int R50Damp = 258;
+    [Tune("ZT_R50_DAMP", 64, 512, 16, "eval")] public static int R50Damp = 256;
     [Tune("ZT_ASP_FH_REDUCE", 0, 4, 1, "aspiration")] public static int AspFailHighReduce = 2;
 
     // ===========================================================================

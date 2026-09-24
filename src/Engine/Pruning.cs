@@ -22,6 +22,7 @@ internal static class Pruning
     private static int CheckExtMaxEvasions;
     private static bool RazorEnabled;
     private static int RazorBase;
+    private static bool LateCutChild;
     private static int ZoomReduction;
     private static int ZoomMinDepth;
     private static int ZoomCold;
@@ -82,6 +83,7 @@ internal static class Pruning
         CheckExtMaxEvasions = Tune.CheckExtMaxEvasions;
         RazorEnabled = Tune.Razor != 0;
         RazorBase = Tune.RazorBase;
+        LateCutChild = Tune.LateCutChild != 0;
         ZoomReduction = Tune.Zoom;
         ZoomMinDepth = Tune.ZoomMinDepth;
         ZoomCold = Tune.ZoomCold;
@@ -602,7 +604,8 @@ internal static class Pruning
                     state.Stats.LmrReduce(reduction);
                 }
 
-                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, !cutNode, default, childInCheck, childStaticEval);
+                // a late move's child is there to refute it, so it is an expected cut node
+                score = -AlphaBeta(state, position, depth - 1 - reduction, -alpha - 1, -alpha, ply + 1, true, LateCutChild || !cutNode, default, childInCheck, childStaticEval);
                 if (score > alpha && (reduction > 0 || score < beta))
                 {
                     state.Stats.Research(reduction);

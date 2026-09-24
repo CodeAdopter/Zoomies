@@ -181,7 +181,7 @@ public static class MoveGeneration
         while (candidates != 0)
         {
             s = Bitboard.PopLsb(ref candidates);
-            b1 = Tables.SquaresBetween[((int)ourKing << 6) | (int)s] & usBb;
+            b1 = Tables.At(Tables.SquaresBetween, ((int)ourKing << 6) | (int)s) & usBb;
 
             if (b1 == 0)
                 checkers ^= 1UL << (int)s;
@@ -230,7 +230,7 @@ public static class MoveGeneration
                     else
                     {
                         captureask = checkers;
-                        quietMask = Tables.SquaresBetween[((int)ourKing << 6) | (int)checkerSquare];
+                        quietMask = Tables.At(Tables.SquaresBetween, ((int)ourKing << 6) | (int)checkerSquare);
                         break;
                     }
                 }
@@ -287,7 +287,7 @@ public static class MoveGeneration
                 sink.One(s, epsq, MoveFlags.EnPassant);
         }
 
-        b1 = b2 & pinned & Tables.LineMasks[((int)epsq << 6) | (int)ourKing];
+        b1 = b2 & pinned & Tables.At(Tables.LineMasks, ((int)epsq << 6) | (int)ourKing);
         if (b1 != 0)
         {
             sink.One(Bitboard.Bsf(b1), epsq, MoveFlags.EnPassant);
@@ -351,7 +351,7 @@ public static class MoveGeneration
             s = Bitboard.PopLsb(ref b1);
             var pt = Types.TypeOf(pos.At(s));
             if (pt == PieceType.Pawn) continue;
-            ulong line = Tables.LineMasks[((int)ourKing << 6) | (int)s];
+            ulong line = Tables.At(Tables.LineMasks, ((int)ourKing << 6) | (int)s);
             b2 = Tables.Attacks(pt, s, all) & line;
             sink.Quiets(s, b2 & quietMask);
             sink.Captures(s, b2 & captureask);
@@ -362,7 +362,7 @@ public static class MoveGeneration
         {
             s = Bitboard.PopLsb(ref b1);
 
-            ulong line = Tables.LineMasks[((int)ourKing << 6) | (int)s];
+            ulong line = Tables.At(Tables.LineMasks, ((int)ourKing << 6) | (int)s);
             if (Types.RankOf(s) == Types.RelativeRank(usColor, Rank.Rank7))
             {
                 b2 = Tables.PawnAttacks(usColor, s) & captureask & line;

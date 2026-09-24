@@ -213,27 +213,40 @@ public class Position
             History[i] = new UndoInfo();
     }
 
+    // unchecked element access for the make/unmake primitives
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ref ulong PieceRef(Piece pc) => ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(pieceBB), (int)pc);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ref ulong ColorRef(Piece pc) => ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(colorBB), ((int)pc >> 3) & 1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ref Piece BoardRef(Square s) => ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(board), (int)s);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private CastlingRights CastleClearAt(Square s) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(castleClear), (int)s);
+
     private void PutPiece(Piece pc, Square s)
     {
-        board[(int)s] = pc;
+        BoardRef(s) = pc;
         ulong bb = 1UL << (int)s;
-        pieceBB[(int)pc] |= bb;
-        colorBB[((int)pc >> 3) & 1] |= bb;
+        PieceRef(pc) |= bb;
+        ColorRef(pc) |= bb;
         hash ^= Zobrist.Piece(pc, s);
     }
     private void RemovePiece(Square s)
     {
-        Piece pc = board[(int)s];
+        Piece pc = BoardRef(s);
         ulong bb = 1UL << (int)s;
         hash ^= Zobrist.Piece(pc, s);
-        pieceBB[(int)pc] &= ~bb;
-        colorBB[((int)pc >> 3) & 1] &= ~bb;
-        board[(int)s] = Piece.NoPiece;
+        PieceRef(pc) &= ~bb;
+        ColorRef(pc) &= ~bb;
+        BoardRef(s) = Piece.NoPiece;
     }
     private void MovePiece(Square from, Square to)
     {
-        var movingPiece = board[(int)from];
-        var capturedPiece = board[(int)to];
+        var movingPiece = BoardRef(from);
+        var capturedPiece = BoardRef(to);
 
         hash ^= Zobrist.Piece(movingPiece, from)
              ^ Zobrist.Piece(movingPiece, to);
@@ -244,16 +257,16 @@ public class Position
         ulong toBB = 1UL << (int)to;
         ulong fromTo = (1UL << (int)from) | toBB;
 
-        pieceBB[(int)movingPiece] ^= fromTo;
-        colorBB[((int)movingPiece >> 3) & 1] ^= fromTo;
+        PieceRef(movingPiece) ^= fromTo;
+        ColorRef(movingPiece) ^= fromTo;
         if (capturedPiece != Piece.NoPiece)
         {
-            pieceBB[(int)capturedPiece] &= ~toBB;
-            colorBB[((int)capturedPiece >> 3) & 1] &= ~toBB;
+            PieceRef(capturedPiece) &= ~toBB;
+            ColorRef(capturedPiece) &= ~toBB;
         }
 
-        board[(int)to] = movingPiece;
-        board[(int)from] = Piece.NoPiece;
+        BoardRef(to) = movingPiece;
+        BoardRef(from) = Piece.NoPiece;
     }
 
     public void MakeNullMove()
@@ -283,48 +296,48 @@ public class Position
 
     private void MovePieceQuietNoHash(Square from, Square to)
     {
-        Piece pc = board[(int)from];
+        Piece pc = BoardRef(from);
         ulong fromTo = (1UL << (int)from) | (1UL << (int)to);
-        pieceBB[(int)pc] ^= fromTo;
-        colorBB[((int)pc >> 3) & 1] ^= fromTo;
-        board[(int)to] = pc;
-        board[(int)from] = Piece.NoPiece;
+        PieceRef(pc) ^= fromTo;
+        ColorRef(pc) ^= fromTo;
+        BoardRef(to) = pc;
+        BoardRef(from) = Piece.NoPiece;
     }
     private void PutPieceNoHash(Piece pc, Square s)
     {
-        board[(int)s] = pc;
+        BoardRef(s) = pc;
         ulong bb = 1UL << (int)s;
-        pieceBB[(int)pc] |= bb;
-        colorBB[((int)pc >> 3) & 1] |= bb;
+        PieceRef(pc) |= bb;
+        ColorRef(pc) |= bb;
     }
     private void RemovePieceNoHash(Square s)
     {
-        Piece pc = board[(int)s];
+        Piece pc = BoardRef(s);
         ulong bb = 1UL << (int)s;
-        pieceBB[(int)pc] &= ~bb;
-        colorBB[((int)pc >> 3) & 1] &= ~bb;
-        board[(int)s] = Piece.NoPiece;
+        PieceRef(pc) &= ~bb;
+        ColorRef(pc) &= ~bb;
+        BoardRef(s) = Piece.NoPiece;
     }
 
     private void RemovePieceKnownNoHash(Square s, Piece pc)
     {
         ulong bb = 1UL << (int)s;
-        pieceBB[(int)pc] &= ~bb;
-        colorBB[((int)pc >> 3) & 1] &= ~bb;
-        board[(int)s] = Piece.NoPiece;
+        PieceRef(pc) &= ~bb;
+        ColorRef(pc) &= ~bb;
+        BoardRef(s) = Piece.NoPiece;
     }
 
     private void MovePieceKnownCaptureNoHash(Square from, Square to, Piece captured)
     {
-        var movingPiece = board[(int)from];
+        var movingPiece = BoardRef(from);
         ulong toBB = 1UL << (int)to;
         ulong fromTo = (1UL << (int)from) | toBB;
-        pieceBB[(int)movingPiece] ^= fromTo;
-        colorBB[((int)movingPiece >> 3) & 1] ^= fromTo;
-        pieceBB[(int)captured] &= ~toBB;
-        colorBB[((int)captured >> 3) & 1] &= ~toBB;
-        board[(int)to] = movingPiece;
-        board[(int)from] = Piece.NoPiece;
+        PieceRef(movingPiece) ^= fromTo;
+        ColorRef(movingPiece) ^= fromTo;
+        PieceRef(captured) &= ~toBB;
+        ColorRef(captured) &= ~toBB;
+        BoardRef(to) = movingPiece;
+        BoardRef(from) = Piece.NoPiece;
     }
     private void MovePieceNoHash(Square from, Square to)
     {
@@ -364,14 +377,14 @@ public class Position
 
     private void MovePieceQuiet(Square from, Square to)
     {
-        Piece pc = board[(int)from];
+        Piece pc = BoardRef(from);
         hash ^= Zobrist.Piece(pc, from)
              ^ Zobrist.Piece(pc, to);
         ulong fromTo = (1UL << (int)from) | (1UL << (int)to);
-        pieceBB[(int)pc] ^= fromTo;
-        colorBB[((int)pc >> 3) & 1] ^= fromTo;
-        board[(int)to] = pc;
-        board[(int)from] = Piece.NoPiece;
+        PieceRef(pc) ^= fromTo;
+        ColorRef(pc) ^= fromTo;
+        BoardRef(to) = pc;
+        BoardRef(from) = Piece.NoPiece;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -412,21 +425,18 @@ public class Position
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ulong AllPieces(Color c) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(colorBB), (int)c);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ulong AttackersFrom(Color c, Square s, ulong occ)
     {
-        ulong knight = Tables.KnightAttacks(s);
-        ulong bishop = Tables.BishopAttacks(s, occ);
-        ulong rook = Tables.RookAttacks(s, occ);
-        return c == Color.White ?
-            (Tables.PawnAttacks(Color.Black, s) & pieceBB[(int)Piece.WhitePawn]) |
-            (knight & pieceBB[(int)Piece.WhiteKnight]) |
-            (bishop & (pieceBB[(int)Piece.WhiteBishop] | pieceBB[(int)Piece.WhiteQueen])) |
-            (rook & (pieceBB[(int)Piece.WhiteRook] | pieceBB[(int)Piece.WhiteQueen])) :
-            (Tables.PawnAttacks(Color.White, s) & pieceBB[(int)Piece.BlackPawn]) |
-            (knight & pieceBB[(int)Piece.BlackKnight]) |
-            (bishop & (pieceBB[(int)Piece.BlackBishop] | pieceBB[(int)Piece.BlackQueen])) |
-            (rook & (pieceBB[(int)Piece.BlackRook] | pieceBB[(int)Piece.BlackQueen]));
+        ref ulong pb = ref MemoryMarshal.GetArrayDataReference(pieceBB);
+        int offset = (int)c << 3;
+        ulong queens = Unsafe.Add(ref pb, offset | (int)PieceType.Queen);
+        return (Tables.PawnAttacks(c.Flip(), s) & Unsafe.Add(ref pb, offset | (int)PieceType.Pawn)) |
+            (Tables.KnightAttacks(s) & Unsafe.Add(ref pb, offset | (int)PieceType.Knight)) |
+            (Tables.BishopAttacks(s, occ) & (Unsafe.Add(ref pb, offset | (int)PieceType.Bishop) | queens)) |
+            (Tables.RookAttacks(s, occ) & (Unsafe.Add(ref pb, offset | (int)PieceType.Rook) | queens));
     }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool InCheck(Color c)
     {
         var kingSquare = Bitboard.Bsf(BitboardOf(c, PieceType.King));
@@ -439,24 +449,26 @@ public class Position
     public void Play(Color us, Move m)
     {
         if (NnueSt != null) Engine.Nnue.OnPlay(this, us, m);
-        hash ^= StateHash(History[gamePly].Castling, History[gamePly].EnPassantSquare);
+        ref UndoInfo prev = ref History[gamePly];
+        ref UndoInfo state = ref History[gamePly + 1];
         sideToPlay = sideToPlay.Flip();
         ++gamePly;
         var type = m.Flags;
+        var piece = BoardRef(m.From);
 
-        History[gamePly] = new UndoInfo(History[gamePly - 1]);
-        var piece = board[(int)m.From];
+        CastlingRights oldCastling = prev.Castling;
+        CastlingRights newCastling = oldCastling & ~(CastleClearAt(m.From) | CastleClearAt(m.To));
+        ulong h = hash ^ Zobrist.SideToMove;
+        if (prev.EnPassantSquare != Square.NoSquare)
+            h ^= Zobrist.EnPassantFileFast(prev.EnPassantSquare);
+        if (newCastling != oldCastling)
+            h ^= Zobrist.CastlingFast(oldCastling) ^ Zobrist.CastlingFast(newCastling);
+        hash = h;
 
-        if (Types.TypeOf(piece) == PieceType.Pawn || m.IsCapture)
-        {
-            History[gamePly].HalfMoveClock = 0;
-        }
-        else
-        {
-            History[gamePly].HalfMoveClock++;
-        }
-
-        History[gamePly].Castling &= ~(castleClear[(int)m.From] | castleClear[(int)m.To]);
+        state.Castling = newCastling;
+        state.Captured = Piece.NoPiece;
+        state.EnPassantSquare = Square.NoSquare;
+        state.HalfMoveClock = Types.TypeOf(piece) == PieceType.Pawn || m.IsCapture ? 0 : prev.HalfMoveClock + 1;
 
         switch (type)
         {
@@ -465,10 +477,13 @@ public class Position
                 break;
 
             case MoveFlags.DoublePush:
+            {
                 MovePieceQuiet(m.From, m.To);
-                History[gamePly].EnPassantSquare =
-                    (Square)((int)m.From + (int)Types.RelativeDir(us, Direction.North));
+                Square ep = (Square)((int)m.From + (int)Types.RelativeDir(us, Direction.North));
+                state.EnPassantSquare = ep;
+                hash ^= Zobrist.EnPassantFileFast(ep);
                 break;
+            }
 
             case MoveFlags.OO:
                 if (Chess960){
@@ -530,122 +545,44 @@ public class Position
 
             case MoveFlags.PcKnight:
                 RemovePiece(m.From);
-                History[gamePly].Captured = board[(int)m.To];
+                state.Captured = BoardRef(m.To);
                 RemovePiece(m.To);
                 PutPiece(Types.MakePiece(us, PieceType.Knight), m.To);
                 break;
 
             case MoveFlags.PcBishop:
                 RemovePiece(m.From);
-                History[gamePly].Captured = board[(int)m.To];
+                state.Captured = BoardRef(m.To);
                 RemovePiece(m.To);
                 PutPiece(Types.MakePiece(us, PieceType.Bishop), m.To);
                 break;
 
             case MoveFlags.PcRook:
                 RemovePiece(m.From);
-                History[gamePly].Captured = board[(int)m.To];
+                state.Captured = BoardRef(m.To);
                 RemovePiece(m.To);
                 PutPiece(Types.MakePiece(us, PieceType.Rook), m.To);
                 break;
 
             case MoveFlags.PcQueen:
                 RemovePiece(m.From);
-                History[gamePly].Captured = board[(int)m.To];
+                state.Captured = BoardRef(m.To);
                 RemovePiece(m.To);
                 PutPiece(Types.MakePiece(us, PieceType.Queen), m.To);
                 break;
 
             case MoveFlags.Capture:
-                History[gamePly].Captured = board[(int)m.To];
+                state.Captured = BoardRef(m.To);
                 MovePiece(m.From, m.To);
                 break;
         }
 
-        hash ^= Zobrist.SideToMove;
-        hash ^= StateHash(History[gamePly].Castling, History[gamePly].EnPassantSquare);
-        History[gamePly].Hash = hash;
+        state.Hash = hash;
     }
     public void Undo(Color us, Move m)
     {
+        UndoPerft(us, m);
         hash = History[gamePly].Hash;
-        hash ^= StateHash(History[gamePly].Castling, History[gamePly].EnPassantSquare);
-
-        var type = m.Flags;
-        switch (type)
-        {
-            case MoveFlags.Quiet:
-                MovePieceQuiet(m.To, m.From);
-                break;
-
-            case MoveFlags.DoublePush:
-                MovePieceQuiet(m.To, m.From);
-                break;
-
-            case MoveFlags.OO:
-                if (Chess960) UndoCastleFrc(us, m.From, CastleIndex(us, true), hashed: true);
-                else if (us == Color.White)
-                {
-                    MovePieceQuiet(Square.g1, Square.e1);
-                    MovePieceQuiet(Square.f1, Square.h1);
-                }
-                else
-                {
-                    MovePieceQuiet(Square.g8, Square.e8);
-                    MovePieceQuiet(Square.f8, Square.h8);
-                }
-                break;
-
-            case MoveFlags.OOO:
-                if (Chess960) UndoCastleFrc(us, m.From, CastleIndex(us, false), hashed: true);
-                else if (us == Color.White)
-                {
-                    MovePieceQuiet(Square.c1, Square.e1);
-                    MovePieceQuiet(Square.d1, Square.a1);
-                }
-                else
-                {
-                    MovePieceQuiet(Square.c8, Square.e8);
-                    MovePieceQuiet(Square.d8, Square.a8);
-                }
-                break;
-
-            case MoveFlags.EnPassant:
-                MovePieceQuiet(m.To, m.From);
-                PutPiece(Types.MakePiece(us.Flip(), PieceType.Pawn),
-                        (Square)((int)m.To + (int)Types.RelativeDir(us, Direction.South)));
-                break;
-
-            case MoveFlags.PrKnight:
-            case MoveFlags.PrBishop:
-            case MoveFlags.PrRook:
-            case MoveFlags.PrQueen:
-                RemovePiece(m.To);
-                PutPiece(Types.MakePiece(us, PieceType.Pawn), m.From);
-                break;
-
-            case MoveFlags.PcKnight:
-            case MoveFlags.PcBishop:
-            case MoveFlags.PcRook:
-            case MoveFlags.PcQueen:
-                RemovePiece(m.To);
-                PutPiece(Types.MakePiece(us, PieceType.Pawn), m.From);
-                PutPiece(History[gamePly].Captured, m.To);
-                break;
-
-            case MoveFlags.Capture:
-                MovePieceQuiet(m.To, m.From);
-                PutPiece(History[gamePly].Captured, m.To);
-                break;
-        }
-        hash ^= Zobrist.SideToMove;
-        hash ^= StateHash(
-            History[gamePly - 1].Castling,
-            History[gamePly - 1].EnPassantSquare);
-
-        sideToPlay = sideToPlay.Flip();
-        --gamePly;
-        if (NnueSt != null) Engine.Nnue.OnUndo(this);
     }
 
     public void PlayPerft(Color us, Move m)
@@ -786,10 +723,14 @@ public class Position
     public ulong KeyAfter(Color us, Move m)
     {
         ref readonly UndoInfo cur = ref History[gamePly];
-        ulong k = hash ^ StateHash(cur.Castling, cur.EnPassantSquare) ^ Zobrist.SideToMove;
+        ulong k = hash ^ Zobrist.SideToMove;
+        if (cur.EnPassantSquare != Square.NoSquare)
+            k ^= Zobrist.EnPassantFileFast(cur.EnPassantSquare);
         Square from = m.From, to = m.To;
-        Piece pc = board[(int)from];
-        CastlingRights castling = cur.Castling & ~(castleClear[(int)from] | castleClear[(int)to]);
+        Piece pc = BoardRef(from);
+        CastlingRights castling = cur.Castling & ~(CastleClearAt(from) | CastleClearAt(to));
+        if (castling != cur.Castling)
+            k ^= Zobrist.CastlingFast(cur.Castling) ^ Zobrist.CastlingFast(castling);
         Square ep = Square.NoSquare;
         switch (m.Flags)
         {
@@ -835,20 +776,21 @@ public class Position
             case MoveFlags.PcBishop:
             case MoveFlags.PcRook:
             case MoveFlags.PcQueen:
-                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(board[(int)to], to)
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(BoardRef(to), to)
                    ^ Zobrist.Piece(Types.MakePiece(us, (PieceType)(((int)m.Flags & 3) + 1)), to);
                 break;
             case MoveFlags.Capture:
-                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(pc, to) ^ Zobrist.Piece(board[(int)to], to);
+                k ^= Zobrist.Piece(pc, from) ^ Zobrist.Piece(pc, to) ^ Zobrist.Piece(BoardRef(to), to);
                 break;
         }
-        return k ^ StateHash(castling, ep);
+        return ep != Square.NoSquare ? k ^ Zobrist.EnPassantFileFast(ep) : k;
     }
 
     public ulong KeyAfterNull()
     {
         ref readonly UndoInfo cur = ref History[gamePly];
-        return hash ^ StateHash(cur.Castling, cur.EnPassantSquare) ^ Zobrist.SideToMove ^ StateHash(cur.Castling, Square.NoSquare);
+        ulong k = hash ^ Zobrist.SideToMove;
+        return cur.EnPassantSquare != Square.NoSquare ? k ^ Zobrist.EnPassantFileFast(cur.EnPassantSquare) : k;
     }
 
     public bool IsRepetition()
@@ -875,14 +817,12 @@ public class Position
 
     public bool HasRepeated()
     {
-        if (gamePly < 4) return false;
-
-        for (int i = gamePly - 2; i >= 0; i -= 2)
-        {
-            if (History[i].Hash == hash) return true;
-            if (History[i].HalfMoveClock == 0) break;
-        }
-
+        int clock = History[gamePly].HalfMoveClock;
+        if (clock < 4) return false;
+        ref UndoInfo first = ref MemoryMarshal.GetArrayDataReference(History);
+        int end = Math.Max(gamePly - clock, 0);
+        for (int i = gamePly - 4; i >= end; i -= 2)
+            if (Unsafe.Add(ref first, i).Hash == hash) return true;
         return false;
     }
 

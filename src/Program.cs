@@ -71,6 +71,10 @@ if (args.Length > 0)
             Environment.Exit(Zoomies.Training.NnueVerify4.Cli(args));
             return;
 
+        case "hashcheck":
+            Environment.Exit(Zoomies.Training.HashCheck.Cli(args));
+            return;
+
         case "eval" when args.Length >= 3:
         {
             Nnue.Load(args[1]);

@@ -42,6 +42,12 @@ public static class Zobrist
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong Piece(Piece pc, Square s) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(ZobristTable), ((int)pc << 6) | (int)s);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ulong CastlingFast(CastlingRights rights) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(Castling), (int)rights & 0xF);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ulong EnPassantFileFast(Square square) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(EnPassantFile), (int)square & 7);
+
     public static void Initialize()
     {
         PRNG rng = new(70026072);

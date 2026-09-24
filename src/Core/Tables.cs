@@ -76,9 +76,7 @@ public static class Tables
 
     public static readonly int[] RookTableOffsets = new int[64];
 
-    #pragma warning disable CA2211
-    public static ulong[] RookAttackTable = null!;
-    #pragma warning restore CA2211
+    public static readonly ulong[] RookAttackTable = new ulong[102400];
 
     public static ReadOnlySpan<ulong> RookMagicNumbers =>
     [
@@ -115,7 +113,8 @@ public static class Tables
             tableSize += 1 << relevantBitCount;
         }
 
-        RookAttackTable = new ulong[tableSize];
+        if (tableSize != RookAttackTable.Length)
+            throw new InvalidOperationException($"Rook table size {tableSize} != {RookAttackTable.Length}");
         for (Square square = Square.a1; square <= Square.h8; square++)
         {
             int squareIndex = (int)square;
@@ -149,13 +148,13 @@ public static class Tables
     public static ulong RookAttacks(Square square, ulong occupancy)
     {
         int squareIndex = (int)square;
-        ulong occupancyMask = RookRelevantOccupancyMasks[squareIndex];
+        ulong occupancyMask = At(RookRelevantOccupancyMasks, squareIndex);
         int tableIndex = Bmi2.X64.IsSupported
-            ? RookTableOffsets[squareIndex] +
+            ? At(RookTableOffsets, squareIndex) +
                 (int)Bmi2.X64.ParallelBitExtract(occupancy, occupancyMask)
-            : RookTableOffsets[squareIndex] +
+            : At(RookTableOffsets, squareIndex) +
                 (int)(((occupancy & occupancyMask) * RookMagicNumbers[squareIndex]) >>
-                    RookIndexShifts[squareIndex]);
+                    At(RookIndexShifts, squareIndex));
 
         return Unsafe.Add(
             ref MemoryMarshal.GetArrayDataReference(RookAttackTable),
@@ -187,9 +186,8 @@ public static class Tables
     public static readonly int[] BishopIndexShifts = new int[64];
     public static readonly int[] BishopTableOffsets = new int[64];
 
-    #pragma warning disable CA2211
-    public static ulong[] BishopAttackTable = null!;
-    #pragma warning restore CA2211
+    // 5248 = sum over squares of 2^(relevant bishop occupancy bits).
+    public static readonly ulong[] BishopAttackTable = new ulong[5248];
 
     public static ReadOnlySpan<ulong> BishopMagicNumbers =>
     [
@@ -226,7 +224,8 @@ public static class Tables
             tableSize += 1 << relevantBitCount;
         }
 
-        BishopAttackTable = new ulong[tableSize];
+        if (tableSize != BishopAttackTable.Length)
+            throw new InvalidOperationException($"Bishop table size {tableSize} != {BishopAttackTable.Length}");
         for (Square square = Square.a1; square <= Square.h8; square++)
         {
             int squareIndex = (int)square;
@@ -276,13 +275,13 @@ public static class Tables
     public static ulong BishopAttacks(Square square, ulong occupancy)
     {
         int squareIndex = (int)square;
-        ulong occupancyMask = BishopRelevantOccupancyMasks[squareIndex];
+        ulong occupancyMask = At(BishopRelevantOccupancyMasks, squareIndex);
         int tableIndex = Bmi2.X64.IsSupported
-            ? BishopTableOffsets[squareIndex] +
+            ? At(BishopTableOffsets, squareIndex) +
                 (int)Bmi2.X64.ParallelBitExtract(occupancy, occupancyMask)
-            : BishopTableOffsets[squareIndex] +
+            : At(BishopTableOffsets, squareIndex) +
                 (int)(((occupancy & occupancyMask) * BishopMagicNumbers[squareIndex]) >>
-                    BishopIndexShifts[squareIndex]);
+                    At(BishopIndexShifts, squareIndex));
 
         return Unsafe.Add(
             ref MemoryMarshal.GetArrayDataReference(BishopAttackTable),
@@ -290,10 +289,16 @@ public static class Tables
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ulong KnightAttacks(Square square) => KnightAttackMasks[(int)square];
+    public static ulong KnightAttacks(Square square) => At(KnightAttackMasks, (int)square);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ulong KingAttacks(Square square) => KingAttackMasks[(int)square];
+    public static ulong KingAttacks(Square square) => At(KingAttackMasks, (int)square);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ulong At(ulong[] table, int index) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(table), index);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int At(int[] table, int index) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(table), index);
 
     public static ulong XrayBishopAttacks(Square square, ulong occupancy, ulong blockers)
     {
@@ -407,7 +412,7 @@ public static class Tables
         if (s == Square.NoSquare)
             return 0;
         return c == Color.White
-            ? WhitePawnAttackMasks[(int)s]
-            : BlackPawnAttackMasks[(int)s];
+            ? At(WhitePawnAttackMasks, (int)s)
+            : At(BlackPawnAttackMasks, (int)s);
     }
 }

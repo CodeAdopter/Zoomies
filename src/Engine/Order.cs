@@ -1,4 +1,7 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using Zoomies.Core;
 
 namespace Zoomies.Engine;
@@ -9,29 +12,43 @@ internal static class Order
 
     public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory, bool demoteLosing, out int losingCount) => TacticalMoves(position, moves, captureHistory, demoteLosing, out losingCount, default);
 
+    private const ushort TacticalThreshold = 0x4000;
+
     [SkipLocalsInit]
     public static int TacticalMoves(Position position, Span<Move> moves, short[]? captureHistory, bool demoteLosing, out int losingCount, Span<int> losingSeeOut)
     {
         Span<int> scores = stackalloc int[256];
         int tacticalMoveCount = 0;
 
-        for (int i = 0; i < moves.Length; i++)
+        ref ushort codes = ref Unsafe.As<Move, ushort>(ref MemoryMarshal.GetReference(moves));
+        int scan = 0;
+        if (Vector256.IsHardwareAccelerated)
         {
-            Move move = moves[i];
+            Vector256<ushort> threshold = Vector256.Create(TacticalThreshold);
+            for (; scan + Vector256<ushort>.Count <= moves.Length; scan += Vector256<ushort>.Count)
+            {
+                uint mask = Vector256.GreaterThanOrEqual(Vector256.LoadUnsafe(ref codes, (nuint)scan), threshold)
+                    .ExtractMostSignificantBits();
+                while (mask != 0)
+                {
+                    int index = scan + BitOperations.TrailingZeroCount(mask);
+                    mask &= mask - 1;
+                    Move move = moves[index];
+                    (moves[index], moves[tacticalMoveCount]) = (moves[tacticalMoveCount], move);
+                    scores[tacticalMoveCount++] = TacticalScore(position, move, captureHistory);
+                }
+            }
+        }
+
+        for (; scan < moves.Length; scan++)
+        {
+            Move move = moves[scan];
             if (move.IsQuiet)
                 continue;
 
-            int victimValue = move.IsCapture ? PieceTypeValue(position.At(move.To)) : 0;
-            int score = victimValue * 16 - PieceTypeValue(position.At(move.From))
-                + ((move.Flags & MoveFlags.Promotions) != 0
-                    ? Eval.PieceValue[((int)move.Flags & 0b11) + 1]
-                    : 0);
-            if (captureHistory != null)
-                score += captureHistory[CaptureHistoryIndex(position, move)];
-
-            (moves[i], moves[tacticalMoveCount]) =
-                (moves[tacticalMoveCount], moves[i]);
-            scores[tacticalMoveCount++] = score;
+            (moves[scan], moves[tacticalMoveCount]) =
+                (moves[tacticalMoveCount], moves[scan]);
+            scores[tacticalMoveCount++] = TacticalScore(position, move, captureHistory);
         }
 
         for (int i = 1; i < tacticalMoveCount; i++)
@@ -79,6 +96,19 @@ internal static class Order
         }
 
         return goodCount;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int TacticalScore(Position position, Move move, short[]? captureHistory)
+    {
+        int victimValue = move.IsCapture ? PieceTypeValue(position.At(move.To)) : 0;
+        int score = victimValue * 16 - PieceTypeValue(position.At(move.From))
+            + ((move.Flags & MoveFlags.Promotions) != 0
+                ? Eval.PieceValue[((int)move.Flags & 0b11) + 1]
+                : 0);
+        if (captureHistory != null)
+            score += captureHistory[CaptureHistoryIndex(position, move)];
+        return score;
     }
 
     private static bool IsLosingCapture(Position position, Move move, out int see)

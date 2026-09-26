@@ -16,3 +16,10 @@ ASCENT Internal Rating: 2373
 
 ASCENT Score: 0.59 elo per minute (Stage 3)
 ASCENT Internal Rating: 2431
+
+Calibrated Final Rating: 3007 elo
+Calibrated Rating Gain: +189 elo
+Internal Rating Gain: +296 elo
+
+Time: 4.06h
+Result: Success

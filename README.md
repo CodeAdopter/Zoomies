@@ -79,7 +79,7 @@ dotnet run --project src/Zoomies.csproj -- frcperft
 - Various Engines/Authors for engine opponents ([Petrel], [Stockfish], [Stash], [Stormphrax], [Lizard])
 - [Chess Programming Wiki]
 - [CCRL] for browsing open source engines
-- UHO opening book by Stefan Pohl
+- UHO opening book by Stefan Pohl used for testing
 
 [Cutechess]: https://github.com/cutechess/cutechess
 [Fastchess]: https://github.com/Disservin/fastchess
